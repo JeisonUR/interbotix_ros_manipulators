@@ -122,7 +122,7 @@ def launch_setup(context, *args, **kwargs):
         package="interbotix_xs_sdk",
         executable="xs_sdk",
         name="xs_sdk",
-        namespace=robot_name,
+        #namespace=robot_name,
         arguments=[],
         parameters=[
             {
@@ -139,7 +139,7 @@ def launch_setup(context, *args, **kwargs):
         package="interbotix_xs_sdk",
         executable="xs_sdk_sim",
         name="xs_sdk_sim",
-        namespace=robot_name,
+        #namespace=robot_name,
         arguments=[],
         parameters=[
             {

@@ -17,6 +17,8 @@
     <xacro:include filename="$(find interbotix_xsarm_gazebo)/config/interbotix_texture.gazebo"/>
   </xacro:if>
 
+  <xacro:include filename="$(find interbotix_xsarm_descriptions)/urdf/wx250s_control.xacro"/>
+
   <material name="interbotix_black">
     <texture filename="package://interbotix_xsarm_descriptions/meshes/interbotix_black.png"/>
   </material>

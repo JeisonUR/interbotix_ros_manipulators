@@ -8,5 +8,5 @@ groups:
 
 singles:
   gripper:
-    operating_mode: pwm
+    operating_mode: linear_position
     torque_enable: true

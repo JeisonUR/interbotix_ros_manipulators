@@ -77,7 +77,7 @@ def launch_setup(context, *args, **kwargs):
         package="robot_state_publisher",
         executable="robot_state_publisher",
         parameters=[robot_description],
-        namespace=robot_name,
+        #namespace=robot_name,
         output={"both": "log"},
     )
 
@@ -85,7 +85,7 @@ def launch_setup(context, *args, **kwargs):
         condition=IfCondition(use_joint_pub),
         package="joint_state_publisher",
         executable="joint_state_publisher",
-        namespace=robot_name,
+        #namespace=robot_name,
         output={"both": "log"},
     )
 
@@ -93,7 +93,7 @@ def launch_setup(context, *args, **kwargs):
         condition=IfCondition(use_joint_pub_gui),
         package="joint_state_publisher_gui",
         executable="joint_state_publisher_gui",
-        namespace=robot_name,
+        #namespace=robot_name,
         output={"both": "log"},
     )
 
@@ -102,7 +102,7 @@ def launch_setup(context, *args, **kwargs):
         package="rviz2",
         executable="rviz2",
         name="rviz2",
-        namespace=robot_name,
+        #namespace=robot_name,
         arguments=["-d", rvizconfig],
         output={"both": "log"},
     )

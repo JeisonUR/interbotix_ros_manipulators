@@ -1,17 +1,38 @@
-arm_controller:
-  type: position_controllers/JointTrajectoryController
-  joints:
-    - waist
-    - shoulder
-    - elbow
-    - forearm_roll
-    - wrist_angle
-    - wrist_rotate
-  constraints:
-    goal_time: 1
-    stopped_velocity_tolerance: 0.02
+controller_manager:
+  ros__parameters:
+    update_rate: 20  # Hz
 
+    arm_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+    gripper_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+    #joint_state_broadcaster:
+    #  type: joint_state_broadcaster/JointStateBroadcaster
+
+
+arm_controller:
+  ros__parameters:
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    joints:
+      - waist
+      - shoulder
+      - elbow
+      - forearm_roll
+      - wrist_angle
+      - wrist_rotate
+      
 gripper_controller:
-  type: position_controllers/JointTrajectoryController
-  joints:
-    - left_finger
+  ros__parameters:
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    joints:
+      - left_finger
