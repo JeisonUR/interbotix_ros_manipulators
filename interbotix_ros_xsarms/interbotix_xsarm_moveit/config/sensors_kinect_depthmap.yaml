@@ -1,0 +1,13 @@
+sensors:
+    sensor_plugin: occupancy_map_monitor/GaryDepthImageOctomapUpdater
+    image_topic: /rs_d435/aligned_depth_to_color/image_raw
+    queue_size: 5
+    near_clipping_plane_distance: 0.3
+    far_clipping_plane_distance: 5.0
+    shadow_threshold: 0.2
+    padding_scale: 4.0
+    padding_offset: 0.03
+    max_update_rate: 20.0
+    filtered_cloud_topic: ""
+    
+

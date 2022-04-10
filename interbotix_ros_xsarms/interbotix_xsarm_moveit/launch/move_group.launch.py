@@ -4,12 +4,21 @@ from ament_index_python.packages import get_package_share_directory as pkgpath
 
 from launch import LaunchDescription, launch_description_sources
 from launch.actions import DeclareLaunchArgument
-from launch.substitutions import Command,FindExecutable,LaunchConfiguration,PathJoinSubstitution
+from launch.substitutions import (
+    Command,
+    FindExecutable,
+    LaunchConfiguration,
+    PathJoinSubstitution,
+)
 from launch.conditions import IfCondition, UnlessCondition
-from launch.actions import IncludeLaunchDescription,OpaqueFunction,OpaqueFunction,ExecuteProcess
+from launch.actions import (
+    IncludeLaunchDescription,
+    OpaqueFunction,
+    OpaqueFunction,
+    ExecuteProcess,
+)
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
-
 
 
 def load_file(package_name, file_path):
@@ -94,9 +103,7 @@ def launch_setup(context, *args, **kwargs):
         "robot_description_semantic": robot_description_semantic_config
     }
 
-    kinematics_yaml = load_yaml(
-        "interbotix_xsarm_moveit", "config/kinematics.yaml"
-    )
+    kinematics_yaml = load_yaml("interbotix_xsarm_moveit", "config/kinematics.yaml")
 
     # Planning Functionality
     ompl_planning_pipeline_config = {
@@ -113,7 +120,8 @@ def launch_setup(context, *args, **kwargs):
 
     # Trajectory Execution Functionality
     moveit_simple_controllers_yaml = load_yaml(
-        "interbotix_xsarm_moveit", f"config/controllers/{dof.perform(context)}dof_controllers.yaml"
+        "interbotix_xsarm_moveit",
+        f"config/controllers/{dof.perform(context)}dof_controllers.yaml",
     )
     moveit_controllers = {
         "moveit_simple_controller_manager": moveit_simple_controllers_yaml,
@@ -134,6 +142,25 @@ def launch_setup(context, *args, **kwargs):
         "publish_transforms_updates": True,
     }
 
+    sensors_config = load_yaml(
+        "interbotix_xsarm_moveit", "config/sensors_kinect_pointcloud.yaml"
+    )
+
+    sensors_depth_config = load_yaml(
+        "interbotix_xsarm_moveit", "config/sensors_kinect_depthmap.yaml"
+    )
+
+    octomap_params = {
+        "octomap_frame": "rs_d435_link",
+        "octomap_resolution": 0.022,
+        "max_range": 5.0,
+        "sensors": ["sensors_point"],
+    }
+    robot_description_timeout = {
+        "robot_description_planning": {
+            "shape_transform_cache_lookup_wait_time": 100000000.0
+        }
+    }
 
     run_move_group_node = Node(
         package="moveit_ros_move_group",
@@ -147,7 +174,10 @@ def launch_setup(context, *args, **kwargs):
             trajectory_execution,
             moveit_controllers,
             planning_scene_monitor_parameters,
-        ]
+            # sensors_config,
+            # octomap_params,
+            # robot_description_timeout,
+        ],
     )
 
     # RViz
@@ -176,17 +206,29 @@ def launch_setup(context, *args, **kwargs):
         executable="static_transform_publisher",
         name="static_transform_publisher",
         output="log",
-        arguments=["0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "world", base_link_frame.perform(context)],
+        arguments=[
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "world",
+            base_link_frame.perform(context),
+        ],
         condition=IfCondition(LaunchConfiguration("use_world_frame")),
     )
-    return [static_tf,run_move_group_node,rviz_node]
+    return [static_tf, run_move_group_node, rviz_node]
+
 
 def generate_launch_description():
     robot_model_arg = DeclareLaunchArgument(
         "robot_model", default_value="", description="robot_model"
     )
     robot_name_arg = DeclareLaunchArgument(
-        "robot_name", default_value=LaunchConfiguration("robot_model"), description="robot_name"
+        "robot_name",
+        default_value=LaunchConfiguration("robot_model"),
+        description="robot_name",
     )
     base_link_frame_arg = DeclareLaunchArgument(
         "base_link_frame", default_value="base_link", description="base_link_frame"
@@ -196,7 +238,7 @@ def generate_launch_description():
     )
     use_world_frame_arg = DeclareLaunchArgument(
         "use_world_frame", default_value="True", description="use_world_frame"
-    ) 
+    )
     external_urdf_loc_arg = DeclareLaunchArgument(
         "external_urdf_loc", default_value="", description="external_urdf_loc"
     )
@@ -204,9 +246,7 @@ def generate_launch_description():
     use_rviz_arg = DeclareLaunchArgument(
         "use_moveit_rviz", default_value="False", description="use_moveit_rviz"
     )
-    dof_arg = DeclareLaunchArgument(
-        "dof", default_value="6", description="dof"
-    )
+    dof_arg = DeclareLaunchArgument("dof", default_value="6", description="dof")
 
     return LaunchDescription(
         [
@@ -240,6 +280,4 @@ def generate_launch_description():
             dof_arg,
             OpaqueFunction(function=launch_setup),
         ]
-        
     )
-    
