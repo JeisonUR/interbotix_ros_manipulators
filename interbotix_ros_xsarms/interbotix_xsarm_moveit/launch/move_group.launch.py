@@ -179,7 +179,22 @@ def launch_setup(context, *args, **kwargs):
         arguments=["0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "world", base_link_frame.perform(context)],
         condition=IfCondition(LaunchConfiguration("use_world_frame")),
     )
-    return [static_tf,run_move_group_node,rviz_node]
+
+    actions_node= Node(
+            package = 'locobot_arms',
+            executable = 'locobot_arms_action_server',
+            name = 'locobot_arms_action_server',
+            parameters=[
+            robot_description,
+            robot_description_semantic,
+            ompl_planning_pipeline_config,
+            kinematics_yaml,
+            ],
+            output = 'screen',
+            emulate_tty = True,
+        ) 
+
+    return [static_tf,run_move_group_node,rviz_node, actions_node]
 
 def generate_launch_description():
     robot_model_arg = DeclareLaunchArgument(
