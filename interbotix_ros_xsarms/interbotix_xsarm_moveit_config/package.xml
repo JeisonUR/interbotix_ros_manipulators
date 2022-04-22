@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>interbotix_xsarm_moveit</name>
+  <name>interbotix_xsarm_moveit_config</name>
   <version>0.0.0</version>
   <description>
      An automatically generated package with all the configuration and launch files for using an Interbotix Arm with the MoveIt! Motion Planning Framework

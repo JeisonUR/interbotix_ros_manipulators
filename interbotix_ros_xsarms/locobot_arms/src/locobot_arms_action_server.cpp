@@ -32,50 +32,51 @@ namespace locobot_arms
         arm_joint_model_group = move_group_arm->getCurrentState()->getJointModelGroup(arm_planning_group);
         gripper_joint_model_group = move_group_gripper->getCurrentState()->getJointModelGroup(gripper_planning_group);
 
-        // moveit_msgs::msg::CollisionObject collision_object;
-        // collision_object.header.frame_id = move_group_arm->getPlanningFrame();
+        moveit_msgs::msg::CollisionObject collision_object;
+        collision_object.header.frame_id = move_group_arm->getPlanningFrame();
 
-        // // The id of the object is used to identify it.
-        // collision_object.id = "table_camera";
+        // The id of the object is used to identify it.
+        collision_object.id = "table_camera";
 
-        // shape_msgs::msg::SolidPrimitive primitive;
-        // primitive.type = primitive.BOX;
-        // primitive.dimensions.resize(3);
-        // primitive.dimensions[primitive.BOX_X] = 0.6;
-        // primitive.dimensions[primitive.BOX_Y] = 1.2;
-        // primitive.dimensions[primitive.BOX_Z] = 0.2;
+        shape_msgs::msg::SolidPrimitive primitive;
+        primitive.type = primitive.CYLINDER;
+        primitive.dimensions.resize(3);
+        primitive.dimensions[primitive.CYLINDER_HEIGHT] = 0.005;
+        primitive.dimensions[primitive.CYLINDER_RADIUS] = 0.15;
 
-        // // Define a pose for the box (specified relative to frame_id).
-        // geometry_msgs::msg::Pose box_pose;
-        // box_pose.orientation.w = 1.0;
-        // box_pose.position.x = 0.19;
-        // box_pose.position.y = 0.0;
-        // box_pose.position.z = -0.1;
+        // Define a pose for the box (specified relative to frame_id).
+        geometry_msgs::msg::Pose box_pose;
+        box_pose.orientation.w = 1.0;
+        box_pose.position.x = 0.0;
+        box_pose.position.y = 0.0;
+        box_pose.position.z = -0.0025;
 
-        // shape_msgs::msg::SolidPrimitive primitive1;
-        // primitive1.type = primitive.CYLINDER;
-        // primitive1.dimensions.resize(3);
-        // primitive1.dimensions[primitive.CYLINDER_HEIGHT] = 0.33;
-        // primitive1.dimensions[primitive.CYLINDER_RADIUS] = 0.15;
+        shape_msgs::msg::SolidPrimitive primitive1;
+        primitive1.type = primitive.BOX;
+        primitive1.dimensions.resize(3);
+        primitive1.dimensions[primitive.BOX_X] = 0.06;
+        primitive1.dimensions[primitive.BOX_Y] = 0.14;
+        primitive1.dimensions[primitive.BOX_Z] = 0.045;
+       
 
-        // // Define a pose for the box (specified relative to frame_id).
-        // geometry_msgs::msg::Pose box_pose1;
-        // box_pose1.orientation.w = 1.0;
-        // box_pose1.position.x = -0.26;
-        // box_pose1.position.y = -0.285;
-        // box_pose1.position.z = 0.165;
+        // Define a pose for the box (specified relative to frame_id).
+        geometry_msgs::msg::Pose box_pose1;
+        box_pose1.orientation.w = 1.0;
+        box_pose1.position.x = 0.115;
+        box_pose1.position.y = 0;
+        box_pose1.position.z = 0.0225;
 
-        // collision_object.primitives.push_back(primitive);
-        // collision_object.primitive_poses.push_back(box_pose);
-        // collision_object.operation = collision_object.ADD;
+        collision_object.primitives.push_back(primitive);
+        collision_object.primitive_poses.push_back(box_pose);
+        collision_object.operation = collision_object.ADD;
 
-        // collision_object.primitives.push_back(primitive1);
-        // collision_object.primitive_poses.push_back(box_pose1);
+        collision_object.primitives.push_back(primitive1);
+        collision_object.primitive_poses.push_back(box_pose1);
 
-        // std::vector<moveit_msgs::msg::CollisionObject> collision_objects;
-        // collision_objects.push_back(collision_object);
+        std::vector<moveit_msgs::msg::CollisionObject> collision_objects;
+        collision_objects.push_back(collision_object);
 
-        // planning_scene_interface.addCollisionObjects(collision_objects);
+        planning_scene_interface.addCollisionObjects(collision_objects);
     }
 
     rclcpp_action::GoalResponse LocobotArmsActionServer::handle_joint_goal(

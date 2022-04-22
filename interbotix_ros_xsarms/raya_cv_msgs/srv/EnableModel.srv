@@ -1,0 +1,9 @@
+string  model           # detector, classificator, segmentator, special
+string  type            # object, face, etc... 
+string  name
+string  source
+string  params
+---
+string  model_info
+uint8   error
+string  error_msg

@@ -1,10 +1,11 @@
 moveit_setup_assistant_config:
   URDF:
-    package: interbotix_descriptions
-    relative_path: urdf/wx200.urdf.xacro
+    package: interbotix_xsarm_descriptions
+    relative_path: urdf/wx250s.urdf.xacro
     xacro_args: "--inorder "
   SRDF:
-    relative_path: config/wx200.srdf
+    relative_path: config/srdf/wx250s.srdf
+  
   CONFIG:
     author_name: Solomon Wiznitzer
     author_email: trsupport@trossenrobotics.com

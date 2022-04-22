@@ -88,14 +88,14 @@ def launch_setup(context, *args, **kwargs):
     robot_description = {"robot_description": model}
 
     robot_description_semantic_config = load_file(
-        "interbotix_xsarm_moveit", f"config/srdf/{robot_model.perform(context)}.srdf"
+        "interbotix_xsarm_moveit_config", f"config/srdf/{robot_model.perform(context)}.srdf"
     )
     robot_description_semantic = {
         "robot_description_semantic": robot_description_semantic_config
     }
 
     kinematics_yaml = load_yaml(
-        "interbotix_xsarm_moveit", "config/kinematics.yaml"
+        "interbotix_xsarm_moveit_config", "config/kinematics.yaml"
     )
 
     # Planning Functionality
@@ -107,13 +107,13 @@ def launch_setup(context, *args, **kwargs):
         }
     }
     ompl_planning_yaml = load_yaml(
-        "interbotix_xsarm_moveit", "config/ompl_planning.yaml"
+        "interbotix_xsarm_moveit_config", "config/ompl_planning.yaml"
     )
     ompl_planning_pipeline_config["move_group"].update(ompl_planning_yaml)
 
     # Trajectory Execution Functionality
     moveit_simple_controllers_yaml = load_yaml(
-        "interbotix_xsarm_moveit", f"config/controllers/{dof.perform(context)}dof_controllers.yaml"
+        "interbotix_xsarm_moveit_config", f"config/controllers/{dof.perform(context)}dof_controllers.yaml"
     )
     moveit_controllers = {
         "moveit_simple_controller_manager": moveit_simple_controllers_yaml,
@@ -152,7 +152,7 @@ def launch_setup(context, *args, **kwargs):
 
     # RViz
     rviz_config_file = (
-        get_package_share_directory("interbotix_xsarm_moveit") + "/config/moveit.rviz"
+        get_package_share_directory("interbotix_xsarm_moveit_config") + "/config/moveit.rviz"
     )
 
     rviz_node = Node(
@@ -176,25 +176,27 @@ def launch_setup(context, *args, **kwargs):
         executable="static_transform_publisher",
         name="static_transform_publisher",
         output="log",
-        arguments=["0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "world", base_link_frame.perform(context)],
-        condition=IfCondition(LaunchConfiguration("use_world_frame")),
+        arguments=["0.0", "0.0", "0.675", "0.0", "0.0", "0.0", "base_link",robot_name.perform(context)+ "/"+base_link_frame.perform(context)],
     )
 
-    actions_node= Node(
-            package = 'locobot_arms',
-            executable = 'locobot_arms_action_server',
-            name = 'locobot_arms_action_server',
-            parameters=[
-            robot_description,
-            robot_description_semantic,
-            ompl_planning_pipeline_config,
-            kinematics_yaml,
-            ],
-            output = 'screen',
-            emulate_tty = True,
-        ) 
+    static_tf_camera = Node(
+        package="tf2_ros",
+        executable="static_transform_publisher",
+        name="static_transform_publisher",
+        output="log",
+        arguments=["0.18497", "0.04086", "0.060694", "-0.00679", "0.041931", "-0.030268","0.99864", robot_name.perform(context) +"/"+base_link_frame.perform(context), "rs_d435_link"],
+    )
 
-    return [static_tf,run_move_group_node,rviz_node, actions_node]
+    static_apriltag = Node(
+        package="tf2_ros",
+        executable="static_transform_publisher",
+        name="static_transform_publisher",
+        output="log",
+        arguments=["-0.01025", "0.0", "-0.011", "0.0", "0.0", "0.0", robot_name.perform(context) +"/ee_arm_link", "april_tag"],
+    )
+
+    return [static_tf,run_move_group_node,rviz_node,static_tf_camera, static_apriltag]
+
 
 def generate_launch_description():
     robot_model_arg = DeclareLaunchArgument(

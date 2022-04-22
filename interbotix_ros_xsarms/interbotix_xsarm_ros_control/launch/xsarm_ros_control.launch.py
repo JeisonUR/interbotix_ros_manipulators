@@ -96,7 +96,7 @@ def launch_setup(context, *args, **kwargs):
         dof.perform(context)+"dof_controllers.yaml",
     )
 
-    print(f"what?: {ros2_controllers_path}")
+ 
     ros2_control_node = Node(
         package="controller_manager",
         executable="ros2_control_node",
@@ -154,7 +154,7 @@ def generate_launch_description():
         "show_ar_tag", default_value="False", description="show_ar_tag"
     )
     use_world_frame_arg = DeclareLaunchArgument(
-        "use_world_frame", default_value="True", description="use_world_frame"
+        "use_world_frame", default_value="False", description="use_world_frame"
     ) 
     external_urdf_loc_arg = DeclareLaunchArgument(
         "external_urdf_loc", default_value="", description="external_urdf_loc"
@@ -164,7 +164,7 @@ def generate_launch_description():
         "use_rviz", default_value="False", description="use_rviz"
     )
     mode_configs_arg = DeclareLaunchArgument(
-        "mode_configs", default_value=load_yaml("interbotix_xsarm_moveit", "config/modes.yaml"), description="mode_configs"
+        "mode_configs", default_value=load_yaml("interbotix_xsarm_moveit_config", "config/modes.yaml"), description="mode_configs"
     )
 
     dof_arg = DeclareLaunchArgument(

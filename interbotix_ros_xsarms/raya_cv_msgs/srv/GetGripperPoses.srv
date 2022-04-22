@@ -1,0 +1,12 @@
+string object_name
+uint64 object_id
+uint64 tries
+---
+string  get_poses_info
+uint8   error
+string  error_msg
+float32 width_object
+geometry_msgs/Pose pre_grasp_pose
+geometry_msgs/Pose grasp_pose
+geometry_msgs/Pose post_grasp_pose
+

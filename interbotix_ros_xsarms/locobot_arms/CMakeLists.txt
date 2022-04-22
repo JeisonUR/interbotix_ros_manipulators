@@ -34,7 +34,7 @@ install(TARGETS locobot_arms_action_server
 install(DIRECTORY include/ DESTINATION include)
 
 install(DIRECTORY
-  #launch
+  launch
   #rviz
   #config
   DESTINATION share/${PROJECT_NAME}/)

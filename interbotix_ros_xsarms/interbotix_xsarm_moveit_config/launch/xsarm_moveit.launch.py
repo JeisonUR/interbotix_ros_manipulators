@@ -43,13 +43,13 @@ def generate_launch_description():
         "robot_name", default_value=LaunchConfiguration("robot_model"), description="robot_name"
     )
     base_link_frame_arg = DeclareLaunchArgument(
-        "base_link_frame", default_value="base_link", description="base_link_frame"
+        "base_link_frame", default_value="base_arm_link", description="base_link_frame"
     )
     show_ar_tag_arg = DeclareLaunchArgument(
         "show_ar_tag", default_value="False", description="show_ar_tag"
     )
     use_world_frame_arg = DeclareLaunchArgument(
-        "use_world_frame", default_value="True", description="use_world_frame"
+        "use_world_frame", default_value="False", description="use_world_frame"
     ) 
     external_urdf_loc_arg = DeclareLaunchArgument(
         "external_urdf_loc", default_value="", description="external_urdf_loc"
@@ -76,7 +76,7 @@ def generate_launch_description():
         "dof", default_value="6", description="dof"
     )
     
-    mode_configs = load_yaml("interbotix_xsarm_moveit", "config/modes.yaml")
+    mode_configs = load_yaml("interbotix_xsarm_moveit_config", "config/modes.yaml")
 
     """
     world_name = load_yaml("interbotix_xsarm_gazebo", "worlds/xsarm_gazebo.world")
@@ -134,7 +134,7 @@ def generate_launch_description():
 
     move_launch=IncludeLaunchDescription(
             launch_description_sources.PythonLaunchDescriptionSource(
-                pkgpath("interbotix_xsarm_moveit") + "/launch/move_group.launch.py"
+                pkgpath("interbotix_xsarm_moveit_config") + "/launch/move_group.launch.py"
             ),
             launch_arguments={
                "robot_model"                       : LaunchConfiguration("robot_model"),

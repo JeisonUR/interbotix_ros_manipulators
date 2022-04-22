@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(interbotix_xsarm_moveit)
+project(interbotix_xsarm_moveit_config)
 
 # Default to C99
 if(NOT CMAKE_C_STANDARD)
@@ -26,6 +26,7 @@ install(DIRECTORY
   launch config
   DESTINATION share/${PROJECT_NAME}/
 )
+install(FILES .setup_assistant DESTINATION share/${PROJECT_NAME})
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 

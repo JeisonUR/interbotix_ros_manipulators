@@ -250,7 +250,7 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument(
                 "load_configs",
-                default_value="true",
+                default_value="false",
                 description=(
                     "a boolean that specifies whether or not the initial register "
                     "values (under the 'motors' heading) in a Motor Config file "

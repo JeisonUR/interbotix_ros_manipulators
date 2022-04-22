@@ -1,0 +1,9 @@
+uint64 object_id
+string object_name
+float32 confidence
+uint64 x_min
+uint64 x_max
+uint64 y_min
+uint64 y_max
+float32[] top_left_point
+float32[] right_bottom_point

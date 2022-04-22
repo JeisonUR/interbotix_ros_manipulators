@@ -2,7 +2,7 @@
 <robot name="wx250s" xmlns:xacro="http://ros.org/wiki/xacro">
 
   <xacro:arg name="robot_name" default = "wx250s"/>
-  <xacro:arg name="base_link_frame" default="base_link"/>
+  <xacro:arg name="base_link_frame" default="base_arm_link"/>
   <xacro:arg name="show_ar_tag" default="false"/>
   <xacro:arg name="show_gripper_bar" default="true"/>
   <xacro:arg name="show_gripper_fingers" default="true"/>
@@ -432,7 +432,7 @@
 
       <joint name="left_finger" type="prismatic">
         <axis xyz="0 1 0"/>
-        <limit effort="5" lower="0.015" upper="0.037" velocity="1"/>
+        <limit effort="5" lower="0.011" upper="0.042" velocity="1"/>
         <origin rpy="0 0 0" xyz="0 0 0"/>
         <parent link="$(arg robot_name)/fingers_link"/>
         <child link="$(arg robot_name)/left_finger_link"/>
@@ -451,16 +451,16 @@
 
       <link name="$(arg robot_name)/left_finger_link">
         <visual>
-          <origin rpy="${pi} ${pi} 0" xyz="0 0.005 0"/>
+          <origin rpy="${pi} ${pi} 0" xyz="0 -0.0205 0"/>
           <geometry>
-            <mesh filename="package://interbotix_xsarm_descriptions/meshes/wx250s_meshes/wx250s_10_gripper_finger.stl" scale="0.001 0.001 0.001"/>
+            <mesh filename="package://interbotix_xsarm_descriptions/meshes/wx250s_meshes/finger_left.stl" scale="0.001 0.001 0.001"/>
           </geometry>
           <material name="interbotix_black"/>
         </visual>
         <collision>
-          <origin rpy="${pi} ${pi} 0" xyz="0 0.005 0"/>
+          <origin rpy="${pi} ${pi} 0" xyz="0 -0.205 0"/>
           <geometry>
-            <mesh filename="package://interbotix_xsarm_descriptions/meshes/wx250s_meshes/wx250s_10_gripper_finger.stl" scale="0.001 0.001 0.001"/>
+            <mesh filename="package://interbotix_xsarm_descriptions/meshes/wx250s_meshes/finger_left.stl" scale="0.001 0.001 0.001"/>
           </geometry>
         </collision>
         <inertial>
@@ -472,7 +472,7 @@
 
       <joint name="right_finger" type="prismatic">
         <axis xyz="0 1 0"/>
-        <limit effort="5" lower="-0.037" upper="-0.015" velocity="1"/>
+        <limit effort="5" lower="-0.042" upper="-0.011" velocity="1"/>
         <origin rpy="0 0 0" xyz="0 0 0"/>
         <parent link="$(arg robot_name)/fingers_link"/>
         <child link="$(arg robot_name)/right_finger_link"/>
@@ -494,16 +494,16 @@
 
       <link name="$(arg robot_name)/right_finger_link">
         <visual>
-          <origin rpy="0 ${pi} 0" xyz="0 -0.005 0"/>
+          <origin rpy="${pi} ${pi} 0" xyz="0 0.0205 0"/>
           <geometry>
-            <mesh filename="package://interbotix_xsarm_descriptions/meshes/wx250s_meshes/wx250s_10_gripper_finger.stl" scale="0.001 0.001 0.001"/>
+            <mesh filename="package://interbotix_xsarm_descriptions/meshes/wx250s_meshes/finger_right.stl" scale="0.001 0.001 0.001"/>
           </geometry>
           <material name="interbotix_black"/>
         </visual>
         <collision>
-          <origin rpy="0 ${pi} 0" xyz="0 -0.005 0"/>
+          <origin rpy="${pi} ${pi} 0" xyz="0 0.0205 0"/>
           <geometry>
-            <mesh filename="package://interbotix_xsarm_descriptions/meshes/wx250s_meshes/wx250s_10_gripper_finger.stl" scale="0.001 0.001 0.001"/>
+            <mesh filename="package://interbotix_xsarm_descriptions/meshes/wx250s_meshes/finger_right.stl" scale="0.001 0.001 0.001"/>
           </geometry>
         </collision>
         <inertial>
@@ -515,7 +515,7 @@
 
       <joint name="ee_gripper" type="fixed">
         <axis xyz="1 0 0"/>
-        <origin rpy="0 0 0" xyz="0.027575 0 0"/>
+        <origin rpy="0 0 0" xyz="0.047575 0 0"/>
         <parent link="$(arg robot_name)/fingers_link"/>
         <child link="$(arg robot_name)/ee_gripper_link"/>
       </joint>
