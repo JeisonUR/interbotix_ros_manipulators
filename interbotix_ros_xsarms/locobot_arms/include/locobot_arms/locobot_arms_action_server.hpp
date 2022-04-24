@@ -7,6 +7,7 @@
 
 #include "raya_arms_msgs/action/arm_joint_planner.hpp"
 #include "raya_arms_msgs/action/arm_pose_planner.hpp"
+#include "raya_arms_msgs/action/gripper_planner.hpp"
 #include "raya_arms_msgs/srv/arm_joint_planner_check.hpp"
 #include "raya_arms_msgs/srv/arm_pose_planner_check.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -22,13 +23,16 @@ namespace locobot_arms
 {
     constexpr auto ARM_GROUP = "interbotix_arm";
     constexpr auto GRIPPER_GROUP = "interbotix_gripper";
-    
+    constexpr float MIN_GRIPPER = 0.011;
+    constexpr float MAX_GRIPPER = 0.038;
 
     class LocobotArmsActionServer
     {
     public:
         using ArmJointPlanner = raya_arms_msgs::action::ArmJointPlanner;
         using GoalHandleArmJointPlanner = rclcpp_action::ServerGoalHandle<ArmJointPlanner>;
+        using GripperPlanner = raya_arms_msgs::action::GripperPlanner;
+        using GoalHandleGripperPlanner = rclcpp_action::ServerGoalHandle<GripperPlanner>;
         using ArmPosePlanner = raya_arms_msgs::action::ArmPosePlanner;
         using GoalHandleArmPosePlanner = rclcpp_action::ServerGoalHandle<ArmPosePlanner>;
 
@@ -82,6 +86,36 @@ namespace locobot_arms
          *
          * @return rclcpp_action::GoalResponse
          */
+        rclcpp_action::GoalResponse handle_gripper_goal(const rclcpp_action::GoalUUID &uuid,
+                                                      std::shared_ptr<const GripperPlanner::Goal> goal);
+
+        /**
+         * @brief
+         *
+         * @param goal_handle
+         * @return rclcpp_action::CancelResponse
+         */
+        rclcpp_action::CancelResponse handle_gripper_cancel(const std::shared_ptr<GoalHandleGripperPlanner> goal_handle);
+
+        /**
+         * @brief
+         *
+         * @param goal_handle
+         */
+        void handle_gripper_accepted(const std::shared_ptr<GoalHandleGripperPlanner> goal_handle);
+
+        /**
+         * @brief task that execute a joint target request
+         *
+         * @param goal_handle
+         */
+        void execute_gripper(const std::shared_ptr<GoalHandleGripperPlanner> goal_handle);
+
+        /**
+         * @brief
+         *
+         * @return rclcpp_action::GoalResponse
+         */
         rclcpp_action::GoalResponse handle_pose_goal(const rclcpp_action::GoalUUID &uuid,
                                                      std::shared_ptr<const ArmPosePlanner::Goal> goal);
 
@@ -99,6 +133,7 @@ namespace locobot_arms
          * @param goal_handle
          */
         void handle_pose_accepted(const std::shared_ptr<GoalHandleArmPosePlanner> goal_handle);
+        
 
         /**
          * @brief task that execute a pose target request
@@ -166,6 +201,7 @@ namespace locobot_arms
 
         rclcpp_action::Server<ArmJointPlanner>::SharedPtr joint_server_;
         rclcpp_action::Server<ArmPosePlanner>::SharedPtr pose_server_;
+        rclcpp_action::Server<GripperPlanner>::SharedPtr gripper_server_;
         rclcpp::Service<raya_arms_msgs::srv::ArmJointPlannerCheck>::SharedPtr joint_check_server_;
         rclcpp::Service<raya_arms_msgs::srv::ArmPosePlannerCheck>::SharedPtr pose_check_server_;
 

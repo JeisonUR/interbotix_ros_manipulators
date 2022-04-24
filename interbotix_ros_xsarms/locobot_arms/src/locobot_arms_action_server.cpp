@@ -21,6 +21,13 @@ namespace locobot_arms
             std::bind(&LocobotArmsActionServer::handle_pose_goal, this, _1, _2),
             std::bind(&LocobotArmsActionServer::handle_pose_cancel, this, _1),
             std::bind(&LocobotArmsActionServer::handle_pose_accepted, this, _1));
+
+        this->gripper_server_ = rclcpp_action::create_server<GripperPlanner>(
+            node_,
+            "locobot_gripper_action",
+            std::bind(&LocobotArmsActionServer::handle_gripper_goal, this, _1, _2),
+            std::bind(&LocobotArmsActionServer::handle_gripper_cancel, this, _1),
+            std::bind(&LocobotArmsActionServer::handle_gripper_accepted, this, _1));
         joint_check_server_ = node_->create_service<raya_arms_msgs::srv::ArmJointPlannerCheck>("locobot_joint_check", std::bind(&LocobotArmsActionServer::joint_check, this, _1, _2));
         pose_check_server_ = node_->create_service<raya_arms_msgs::srv::ArmPosePlannerCheck>("locobot_pose_check", std::bind(&LocobotArmsActionServer::pose_check, this, _1, _2));
     }
@@ -146,6 +153,81 @@ namespace locobot_arms
                     success = future.get();
                 }
             }
+        }
+
+        // Check if goal is done
+        if (rclcpp::ok())
+        {
+            convert_result(success, &result->error, correct_group, correct_number_joints);
+            goal_handle->succeed(result);
+            RCLCPP_INFO(node_->get_logger(), "Goal joint succeeded");
+        }
+    }
+
+    rclcpp_action::GoalResponse LocobotArmsActionServer::handle_gripper_goal(
+        const rclcpp_action::GoalUUID &uuid,
+        std::shared_ptr<const GripperPlanner::Goal> goal)
+    {
+        RCLCPP_INFO(node_->get_logger(), "Received gripper goal request for the gripper");
+        (void)uuid;
+        (void)goal;
+        return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
+    }
+
+    rclcpp_action::CancelResponse LocobotArmsActionServer::handle_gripper_cancel(
+        const std::shared_ptr<GoalHandleGripperPlanner> goal_handle)
+    {
+        RCLCPP_INFO(node_->get_logger(), "Received request to cancel gripper goal");
+        (void)goal_handle;
+        return rclcpp_action::CancelResponse::ACCEPT;
+    }
+
+    void LocobotArmsActionServer::handle_gripper_accepted(const std::shared_ptr<GoalHandleGripperPlanner> goal_handle)
+    {
+        using namespace std::placeholders;
+        // this needs to return quickly RCLCPP_INFO(node_->get_logger(), "Executing finished...");to avoid blocking the executor, so spin up a new thread
+        std::thread{std::bind(&LocobotArmsActionServer::execute_gripper, this, _1), goal_handle}.detach();
+    }
+
+    void LocobotArmsActionServer::execute_gripper(const std::shared_ptr<GoalHandleGripperPlanner> goal_handle)
+    {
+        RCLCPP_INFO(node_->get_logger(), "Executing gripper goal");
+        const auto goal = goal_handle->get_goal();
+        auto feedback = std::make_shared<GripperPlanner::Feedback>();
+        auto result = std::make_shared<GripperPlanner::Result>();
+        moveit::planning_interface::MoveGroupInterface *move_group;
+        moveit::planning_interface::MoveItErrorCode success;
+        bool correct_group = true;
+        bool correct_number_joints = true;
+
+        move_group = move_group_gripper;
+        double distance = (goal->width / 2) - 0.0125;
+        if (distance < MIN_GRIPPER)
+            distance = MIN_GRIPPER;
+        if (distance > MAX_GRIPPER)
+            distance = MAX_GRIPPER;
+
+        std::vector<double> joints;
+        joints.push_back(distance);
+        joints.push_back(-distance);
+        move_group->setJointValueTarget(joints);
+        moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+        success = move_group->plan(my_plan);
+        if (success == success.SUCCESS)
+        {
+            auto initial_joints = move_group->getCurrentJointValues();
+            bool is_complete = false;
+            auto future = std::async([move_group, &my_plan, &is_complete]
+                                     {auto success=move_group->execute(my_plan); is_complete=true; return success; });
+            while (!is_complete)
+            {
+                auto actual_joints = move_group->getCurrentJointValues();
+                feedback->arm = GRIPPER_GROUP;
+                feedback->percentage_complete = get_progress(initial_joints, joints, actual_joints);
+                goal_handle->publish_feedback(feedback);
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
+            success = future.get();
         }
 
         // Check if goal is done
