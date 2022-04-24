@@ -43,9 +43,9 @@ HOME_POSITION = [
 PID_GAINS_ARMS={
 "cmd_type":'group',         
 "name":'arm',          
-"kp_pos":900,           
-"ki_pos":200,           
-"kd_pos":10,           
+"kp_pos":800,           
+"ki_pos":50,           
+"kd_pos":0,           
 "k1":0,           
 "k2":0,           
 "kp_vel":100,           
@@ -177,7 +177,7 @@ class GraspingClient(Node):
         except:
             print("service fail")
 
-    def move_arm(self, pose, cartesian_path=False):
+    def move_arm(self, pose, cartesian_path=True):
         goal_msg = ArmPosePlanner.Goal()
         goal_msg.goal_pose = pose
         goal_msg.arm = "interbotix_arm"
@@ -251,7 +251,8 @@ def main(args=None):
     #         nxt = False 
 
     if nxt:
-        time.sleep(1)
+        print("get position")
+        time.sleep(0.4)
         node.call_service()
         response = node.future
         count=0
@@ -269,9 +270,9 @@ def main(args=None):
                 nxt = False
 
     if nxt:
-        time.sleep(1)
-        pre_grasp = node.move_arm(response.pre_grasp_pose)
-        print(pre_grasp)
+        print("pre grasp position")
+        time.sleep(0.4)
+        pre_grasp = node.move_arm(response.pre_grasp_pose,False)
         if pre_grasp.result.error == 0:
             nxt = True
         else:
@@ -280,44 +281,42 @@ def main(args=None):
     
     
     if nxt:
-        time.sleep(1)
-        open_grip = node.move_gripper(0.0865)
+        print("open grip")
+        time.sleep(0.4)
+        open_grip = node.move_gripper(0.101)
         if open_grip.result.error == 0:
             nxt = True
         else:
             print("fail open")
             nxt = False
     if nxt:
-        time.sleep(1)
-        grasp = node.move_arm(response.grasp_pose)
+        print("grasp")
+        time.sleep(0.4)
+        grasp = node.move_arm(response.grasp_pose,True)
         if grasp.result.error == 0:
             nxt = True
         else:
             print("fail grasp")
             nxt = False
     if nxt:
-        time.sleep(1)
+        time.sleep(0.4)
+        print("close_grip")
         close_grip = node.move_gripper(response.width_object)
         if close_grip.result.error == 0:
             nxt = True
         else:
             print("fail close")
             nxt = False
+    # if nxt:
+    #     time.sleep(0.4)
+    #     post_grasp = node.move_arm(response.post_grasp_pose, False)
+    #     if post_grasp.result.error == 0:
+    #         nxt = True
+    #     else:
+    #         print("fail post grasp")
+    #         nxt = False
     if nxt:
-        time.sleep(1)
-        post_grasp = node.move_arm(response.post_grasp_pose)
-        if post_grasp.result.error == 0:
-            nxt = True
-        else:
-            print("fail post grasp")
-            nxt = False
-    if nxt:
-        time.sleep(1)
-        open_grip = node.move_gripper(0.0865)
-        print("melooo!!")
-
-    if nxt:
-        time.sleep(1)
+        time.sleep(0.4)
         print("going home position")
         home = node.move_arm_joints(SLEEP_POSITION)
         if home.result.error == 0:
@@ -326,6 +325,12 @@ def main(args=None):
             print("fail home position")
             nxt = False 
 
+    # if nxt:
+    #     time.sleep(0.4)
+    #     open_grip = node.move_gripper(0.101)
+    #     print("melooo!!")
+
+  
 
 if __name__ == "__main__":
     main()

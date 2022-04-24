@@ -22,7 +22,7 @@ namespace locobot_arms
             std::bind(&LocobotArmsActionServer::handle_pose_cancel, this, _1),
             std::bind(&LocobotArmsActionServer::handle_pose_accepted, this, _1));
         joint_check_server_ = node_->create_service<raya_arms_msgs::srv::ArmJointPlannerCheck>("locobot_joint_check", std::bind(&LocobotArmsActionServer::joint_check, this, _1, _2));
-        pose_check_server_ = node_->create_service<raya_arms_msgs::srv::ArmPosePlannerCheck>("locobot_pose_check", std::bind(&LocobotArmsActionServer::pose_check, this, _1, _2) );
+        pose_check_server_ = node_->create_service<raya_arms_msgs::srv::ArmPosePlannerCheck>("locobot_pose_check", std::bind(&LocobotArmsActionServer::pose_check, this, _1, _2));
     }
 
     void LocobotArmsActionServer::init_moveit_groups()
@@ -32,6 +32,7 @@ namespace locobot_arms
         arm_joint_model_group = move_group_arm->getCurrentState()->getJointModelGroup(arm_planning_group);
         gripper_joint_model_group = move_group_gripper->getCurrentState()->getJointModelGroup(gripper_planning_group);
 
+        move_group_arm->setMaxVelocityScalingFactor(1);
         moveit_msgs::msg::CollisionObject collision_object;
         collision_object.header.frame_id = move_group_arm->getPlanningFrame();
 
@@ -55,16 +56,15 @@ namespace locobot_arms
         primitive1.type = primitive.BOX;
         primitive1.dimensions.resize(3);
         primitive1.dimensions[primitive.BOX_X] = 0.06;
-        primitive1.dimensions[primitive.BOX_Y] = 0.14;
-        primitive1.dimensions[primitive.BOX_Z] = 0.045;
-       
+        primitive1.dimensions[primitive.BOX_Y] = 0.10;
+        primitive1.dimensions[primitive.BOX_Z] = 0.13;
 
         // Define a pose for the box (specified relative to frame_id).
         geometry_msgs::msg::Pose box_pose1;
         box_pose1.orientation.w = 1.0;
-        box_pose1.position.x = 0.115;
-        box_pose1.position.y = 0;
-        box_pose1.position.z = 0.0225;
+        box_pose1.position.x = -0.02;
+        box_pose1.position.y = -0.115;
+        box_pose1.position.z = 0.065;
 
         collision_object.primitives.push_back(primitive);
         collision_object.primitive_poses.push_back(box_pose);
@@ -201,26 +201,56 @@ namespace locobot_arms
 
         if (correct_group)
         {
-            moveit::planning_interface::MoveGroupInterface::Plan my_plan;
-
-            move_group->setPoseTarget(goal->goal_pose);
-            success = move_group->plan(my_plan);
-
-            if (success == success.SUCCESS)
+            bool is_complete = false;
+            if (!goal->cartesian_path)
             {
-                auto initial_pose = move_group->getCurrentPose();
-                bool is_complete = false;
-                auto future = std::async([move_group, &my_plan, &is_complete]
-                                         {auto success=move_group->execute(my_plan); is_complete=true; return success; });
-                while (!is_complete)
+                moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+
+                move_group->setPoseTarget(goal->goal_pose);
+                success = move_group->plan(my_plan);
+
+                if (success == success.SUCCESS)
                 {
-                    auto actual_pose = move_group->getCurrentPose();
-                    feedback->arm = PLANNING_GROUP;
-                    feedback->percentage_complete = get_progress(initial_pose, goal->goal_pose, actual_pose);
-                    goal_handle->publish_feedback(feedback);
-                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                    auto initial_pose = move_group->getCurrentPose();
+
+                    auto future = std::async([move_group, &my_plan, &is_complete]
+                                             {auto success=move_group->execute(my_plan); is_complete=true; return success; });
+                    while (!is_complete)
+                    {
+                        auto actual_pose = move_group->getCurrentPose();
+                        feedback->arm = PLANNING_GROUP;
+                        feedback->percentage_complete = get_progress(initial_pose, goal->goal_pose, actual_pose);
+                        goal_handle->publish_feedback(feedback);
+                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                    }
+                    success = future.get();
                 }
-                success = future.get();
+            }
+            else
+            {
+                std::vector<geometry_msgs::msg::Pose> waypoints;
+                waypoints.push_back(goal->goal_pose);
+
+                moveit_msgs::msg::RobotTrajectory trajectory;
+                const double jump_threshold = 0.0;
+                const double eef_step = 0.01;
+                double fraction = move_group->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
+                if (fraction != -1)
+                {
+                    auto initial_pose = move_group->getCurrentPose();
+
+                    auto future = std::async([move_group, &trajectory, &is_complete]
+                                             {auto success=move_group->execute(trajectory); is_complete=true; return success; });
+                    while (!is_complete)
+                    {
+                        auto actual_pose = move_group->getCurrentPose();
+                        feedback->arm = PLANNING_GROUP;
+                        feedback->percentage_complete = get_progress(initial_pose, goal->goal_pose, actual_pose);
+                        goal_handle->publish_feedback(feedback);
+                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                    }
+                    success = future.get();
+                }
             }
         }
 
@@ -235,8 +265,8 @@ namespace locobot_arms
     }
 
     void LocobotArmsActionServer::convert_result(moveit::planning_interface::MoveItErrorCode success,
-                                              uint8_t *error,
-                                              bool correct_group)
+                                                 uint8_t *error,
+                                                 bool correct_group)
     {
         if (correct_group)
         {
@@ -263,9 +293,9 @@ namespace locobot_arms
     }
 
     void LocobotArmsActionServer::convert_result(moveit::planning_interface::MoveItErrorCode success,
-                                              uint8_t *error,
-                                              bool correct_group,
-                                              bool correct_number_joints)
+                                                 uint8_t *error,
+                                                 bool correct_group,
+                                                 bool correct_number_joints)
     {
         if (!correct_number_joints)
         {
@@ -278,15 +308,15 @@ namespace locobot_arms
     }
 
     double LocobotArmsActionServer::get_progress(std::vector<double> initial_joints,
-                                              std::vector<double> target_joints,
-                                              std::vector<double> actual_joints)
+                                                 std::vector<double> target_joints,
+                                                 std::vector<double> actual_joints)
     {
         return get_distance(initial_joints, target_joints) < 0.001 ? 100.0 : 100.0 * (1.0 - get_distance(actual_joints, target_joints) / get_distance(initial_joints, target_joints));
     }
 
     double LocobotArmsActionServer::get_progress(geometry_msgs::msg::PoseStamped initial_pose,
-                                              geometry_msgs::msg::Pose target_pose,
-                                              geometry_msgs::msg::PoseStamped actual_pose)
+                                                 geometry_msgs::msg::Pose target_pose,
+                                                 geometry_msgs::msg::PoseStamped actual_pose)
     {
         std::vector<double> initial_pose_d(3);
         initial_pose_d.push_back(initial_pose.pose.position.x);
@@ -329,9 +359,9 @@ namespace locobot_arms
     }
 
     void LocobotArmsActionServer::joint_check(const std::shared_ptr<raya_arms_msgs::srv::ArmJointPlannerCheck::Request> request,
-                     std::shared_ptr<raya_arms_msgs::srv::ArmJointPlannerCheck::Response> response)
+                                              std::shared_ptr<raya_arms_msgs::srv::ArmJointPlannerCheck::Response> response)
     {
-        
+
         const std::string PLANNING_GROUP = request->arm;
         moveit::planning_interface::MoveGroupInterface *move_group;
         moveit::planning_interface::MoveItErrorCode success;
@@ -359,11 +389,11 @@ namespace locobot_arms
         {
             convert_result(success, &response->error, correct_group, correct_number_joints);
             RCLCPP_INFO(node_->get_logger(), "Goal joint succeeded");
-        }   
+        }
     }
 
     void LocobotArmsActionServer::pose_check(const std::shared_ptr<raya_arms_msgs::srv::ArmPosePlannerCheck::Request> request,
-                    std::shared_ptr<raya_arms_msgs::srv::ArmPosePlannerCheck::Response> response)
+                                             std::shared_ptr<raya_arms_msgs::srv::ArmPosePlannerCheck::Response> response)
     {
 
         const std::string PLANNING_GROUP = request->arm;

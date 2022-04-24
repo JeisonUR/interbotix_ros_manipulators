@@ -184,7 +184,7 @@ def launch_setup(context, *args, **kwargs):
         executable="static_transform_publisher",
         name="static_transform_publisher",
         output="log",
-        arguments=["0.18497", "0.04086", "0.060694", "-0.00679", "0.041931", "-0.030268","0.99864", robot_name.perform(context) +"/"+base_link_frame.perform(context), "rs_d435_link"],
+        arguments=["0.01", "-0.095", "0.115", "0", "0", "0","1", robot_name.perform(context) +"/"+base_link_frame.perform(context), "rs_d435_link"],
     )
 
     static_apriltag = Node(
