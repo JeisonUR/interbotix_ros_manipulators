@@ -28,6 +28,14 @@ namespace locobot_arms
             std::bind(&LocobotArmsActionServer::handle_gripper_goal, this, _1, _2),
             std::bind(&LocobotArmsActionServer::handle_gripper_cancel, this, _1),
             std::bind(&LocobotArmsActionServer::handle_gripper_accepted, this, _1));
+        
+        this->name_server_ = rclcpp_action::create_server<ArmNamePosPlanner>(
+            node_,
+            "locobot_name_pos_action",
+            std::bind(&LocobotArmsActionServer::handle_name_goal, this, _1, _2),
+            std::bind(&LocobotArmsActionServer::handle_name_cancel, this, _1),
+            std::bind(&LocobotArmsActionServer::handle_name_accepted, this, _1));
+
         joint_check_server_ = node_->create_service<raya_arms_msgs::srv::ArmJointPlannerCheck>("locobot_joint_check", std::bind(&LocobotArmsActionServer::joint_check, this, _1, _2));
         pose_check_server_ = node_->create_service<raya_arms_msgs::srv::ArmPosePlannerCheck>("locobot_pose_check", std::bind(&LocobotArmsActionServer::pose_check, this, _1, _2));
     }
@@ -50,7 +58,7 @@ namespace locobot_arms
         primitive.type = primitive.CYLINDER;
         primitive.dimensions.resize(3);
         primitive.dimensions[primitive.CYLINDER_HEIGHT] = 0.005;
-        primitive.dimensions[primitive.CYLINDER_RADIUS] = 0.15;
+        primitive.dimensions[primitive.CYLINDER_RADIUS] = 0.16;
 
         // Define a pose for the box (specified relative to frame_id).
         geometry_msgs::msg::Pose box_pose;
@@ -147,6 +155,89 @@ namespace locobot_arms
                         auto actual_joints = move_group->getCurrentJointValues();
                         feedback->arm = PLANNING_GROUP;
                         feedback->percentage_complete = get_progress(initial_joints, goal->position, actual_joints);
+                        goal_handle->publish_feedback(feedback);
+                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                    }
+                    success = future.get();
+                }
+            }
+        }
+
+        // Check if goal is done
+        if (rclcpp::ok())
+        {
+            convert_result(success, &result->error, correct_group, correct_number_joints);
+            goal_handle->succeed(result);
+            RCLCPP_INFO(node_->get_logger(), "Goal joint succeeded");
+        }
+    }
+
+    rclcpp_action::GoalResponse LocobotArmsActionServer::handle_name_goal(
+        const rclcpp_action::GoalUUID &uuid,
+        std::shared_ptr<const ArmNamePosPlanner::Goal> goal)
+    {
+        RCLCPP_INFO(node_->get_logger(), "Received name goal request for the arm : %s", goal->arm.data());
+        (void)uuid;
+        return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
+    }
+
+    rclcpp_action::CancelResponse LocobotArmsActionServer::handle_name_cancel(
+        const std::shared_ptr<GoalHandleArmNamePosPlanner> goal_handle)
+    {
+        RCLCPP_INFO(node_->get_logger(), "Received request to cancel name goal");
+        (void)goal_handle;
+        return rclcpp_action::CancelResponse::ACCEPT;
+    }
+
+    void LocobotArmsActionServer::handle_name_accepted(const std::shared_ptr<GoalHandleArmNamePosPlanner> goal_handle)
+    {
+        using namespace std::placeholders;
+        // this needs to return quickly RCLCPP_INFO(node_->get_logger(), "Executing finished...");to avoid blocking the executor, so spin up a new thread
+        std::thread{std::bind(&LocobotArmsActionServer::execute_name, this, _1), goal_handle}.detach();
+    }
+
+    void LocobotArmsActionServer::execute_name(const std::shared_ptr<GoalHandleArmNamePosPlanner> goal_handle)
+    {
+        RCLCPP_INFO(node_->get_logger(), "Executing goal");
+        const auto goal = goal_handle->get_goal();
+        auto feedback = std::make_shared<ArmNamePosPlanner::Feedback>();
+        auto result = std::make_shared<ArmNamePosPlanner::Result>();
+        const std::string PLANNING_GROUP = goal->arm;
+        moveit::planning_interface::MoveGroupInterface *move_group;
+        moveit::planning_interface::MoveItErrorCode success;
+        bool correct_group = true;
+        bool correct_number_joints = false;
+
+        if (goal->arm.compare(arm_planning_group) == 0)
+            move_group = move_group_arm;
+        else if (goal->arm.compare(gripper_planning_group) == 0)
+            move_group = move_group_gripper;
+        else
+            correct_group = false;
+
+        if (correct_group)
+        {
+            if (move_group->setNamedTarget(goal->name))
+            {
+                moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+                correct_number_joints = true;
+                success = move_group->plan(my_plan);
+                if (success == success.SUCCESS)
+                {
+                    auto initial_joints = move_group->getCurrentJointValues();
+                    bool is_complete = false;
+                    auto future = std::async([move_group, &my_plan, &is_complete]
+                                             {auto success=move_group->execute(my_plan); is_complete=true; return success; });
+                    while (!is_complete)
+                    {
+                        auto actual_joints = move_group->getCurrentJointValues();
+                        feedback->arm = PLANNING_GROUP;
+                        std::vector<double> joint_values;
+                        moveit::core::RobotStatePtr kinematic_state = move_group->getCurrentState(10);
+                        auto kinematic_model = move_group->getJointValueTarget();
+                        const auto joint_model_group = kinematic_model.getJointModelGroup(PLANNING_GROUP);
+                        kinematic_state->copyJointGroupPositions(joint_model_group, joint_values);
+                        feedback->percentage_complete = get_progress(initial_joints,joint_values, actual_joints);
                         goal_handle->publish_feedback(feedback);
                         std::this_thread::sleep_for(std::chrono::milliseconds(100));
                     }
@@ -393,7 +484,7 @@ namespace locobot_arms
                                                  std::vector<double> target_joints,
                                                  std::vector<double> actual_joints)
     {
-        return get_distance(initial_joints, target_joints) < 0.001 ? 100.0 : 100.0 * (1.0 - get_distance(actual_joints, target_joints) / get_distance(initial_joints, target_joints));
+        return get_distance(initial_joints, target_joints) < 0.001 ? 100.0 : 100.0 * abs(1.0 - get_distance(actual_joints, target_joints) / get_distance(initial_joints, target_joints));
     }
 
     double LocobotArmsActionServer::get_progress(geometry_msgs::msg::PoseStamped initial_pose,

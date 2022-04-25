@@ -8,6 +8,7 @@
 #include "raya_arms_msgs/action/arm_joint_planner.hpp"
 #include "raya_arms_msgs/action/arm_pose_planner.hpp"
 #include "raya_arms_msgs/action/gripper_planner.hpp"
+#include "raya_arms_msgs/action/arm_name_pos_planner.hpp"
 #include "raya_arms_msgs/srv/arm_joint_planner_check.hpp"
 #include "raya_arms_msgs/srv/arm_pose_planner_check.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -31,6 +32,8 @@ namespace locobot_arms
     public:
         using ArmJointPlanner = raya_arms_msgs::action::ArmJointPlanner;
         using GoalHandleArmJointPlanner = rclcpp_action::ServerGoalHandle<ArmJointPlanner>;
+        using ArmNamePosPlanner = raya_arms_msgs::action::ArmNamePosPlanner;
+        using GoalHandleArmNamePosPlanner = rclcpp_action::ServerGoalHandle<ArmNamePosPlanner>;
         using GripperPlanner = raya_arms_msgs::action::GripperPlanner;
         using GoalHandleGripperPlanner = rclcpp_action::ServerGoalHandle<GripperPlanner>;
         using ArmPosePlanner = raya_arms_msgs::action::ArmPosePlanner;
@@ -80,6 +83,36 @@ namespace locobot_arms
          * @param goal_handle
          */
         void execute_joint(const std::shared_ptr<GoalHandleArmJointPlanner> goal_handle);
+
+        /*
+         * @brief
+         *
+         * @return rclcpp_action::GoalResponse
+         */
+        rclcpp_action::GoalResponse handle_name_goal(const rclcpp_action::GoalUUID &uuid,
+                                                      std::shared_ptr<const ArmNamePosPlanner::Goal> goal);
+
+        /**
+         * @brief
+         *
+         * @param goal_handle
+         * @return rclcpp_action::CancelResponse
+         */
+        rclcpp_action::CancelResponse handle_name_cancel(const std::shared_ptr<GoalHandleArmNamePosPlanner> goal_handle);
+
+        /**
+         * @brief
+         *
+         * @param goal_handle
+         */
+        void handle_name_accepted(const std::shared_ptr<GoalHandleArmNamePosPlanner> goal_handle);
+
+        /**
+         * @brief task that execute a name target request
+         *
+         * @param goal_handle
+         */
+        void execute_name(const std::shared_ptr<GoalHandleArmNamePosPlanner> goal_handle);
 
         /**
          * @brief
@@ -202,6 +235,7 @@ namespace locobot_arms
         rclcpp_action::Server<ArmJointPlanner>::SharedPtr joint_server_;
         rclcpp_action::Server<ArmPosePlanner>::SharedPtr pose_server_;
         rclcpp_action::Server<GripperPlanner>::SharedPtr gripper_server_;
+        rclcpp_action::Server<ArmNamePosPlanner>::SharedPtr name_server_;
         rclcpp::Service<raya_arms_msgs::srv::ArmJointPlannerCheck>::SharedPtr joint_check_server_;
         rclcpp::Service<raya_arms_msgs::srv::ArmPosePlannerCheck>::SharedPtr pose_check_server_;
 
