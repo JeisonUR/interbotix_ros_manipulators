@@ -7,37 +7,42 @@ namespace locobot_arms
           gripper_planning_group(GRIPPER_GROUP)
     {
         node_ = rclcpp::Node::make_shared("locobot_arms_actions", options);
-        using namespace std::placeholders;
+        // using namespace std::placeholders;
         this->joint_server_ = rclcpp_action::create_server<ArmJointPlanner>(
             node_,
             "locobot_joint_action",
-            std::bind(&LocobotArmsActionServer::handle_joint_goal, this, _1, _2),
-            std::bind(&LocobotArmsActionServer::handle_joint_cancel, this, _1),
-            std::bind(&LocobotArmsActionServer::handle_joint_accepted, this, _1));
+            std::bind(&LocobotArmsActionServer::handle_joint_goal, this, std::placeholders::_1, std::placeholders::_2),
+            std::bind(&LocobotArmsActionServer::handle_joint_cancel, this, std::placeholders::_1),
+            std::bind(&LocobotArmsActionServer::handle_joint_accepted, this, std::placeholders::_1));
 
         this->pose_server_ = rclcpp_action::create_server<ArmPosePlanner>(
             node_,
             "locobot_pose_action",
-            std::bind(&LocobotArmsActionServer::handle_pose_goal, this, _1, _2),
-            std::bind(&LocobotArmsActionServer::handle_pose_cancel, this, _1),
-            std::bind(&LocobotArmsActionServer::handle_pose_accepted, this, _1));
+            std::bind(&LocobotArmsActionServer::handle_pose_goal, this, std::placeholders::_1, std::placeholders::_2),
+            std::bind(&LocobotArmsActionServer::handle_pose_cancel, this, std::placeholders::_1),
+            std::bind(&LocobotArmsActionServer::handle_pose_accepted, this, std::placeholders::_1));
 
         this->gripper_server_ = rclcpp_action::create_server<GripperPlanner>(
             node_,
             "locobot_gripper_action",
-            std::bind(&LocobotArmsActionServer::handle_gripper_goal, this, _1, _2),
-            std::bind(&LocobotArmsActionServer::handle_gripper_cancel, this, _1),
-            std::bind(&LocobotArmsActionServer::handle_gripper_accepted, this, _1));
-        
+            std::bind(&LocobotArmsActionServer::handle_gripper_goal, this, std::placeholders::_1, std::placeholders::_2),
+            std::bind(&LocobotArmsActionServer::handle_gripper_cancel, this, std::placeholders::_1),
+            std::bind(&LocobotArmsActionServer::handle_gripper_accepted, this, std::placeholders::_1));
+
         this->name_server_ = rclcpp_action::create_server<ArmNamePosPlanner>(
             node_,
             "locobot_name_pos_action",
-            std::bind(&LocobotArmsActionServer::handle_name_goal, this, _1, _2),
-            std::bind(&LocobotArmsActionServer::handle_name_cancel, this, _1),
-            std::bind(&LocobotArmsActionServer::handle_name_accepted, this, _1));
+            std::bind(&LocobotArmsActionServer::handle_name_goal, this, std::placeholders::_1, std::placeholders::_2),
+            std::bind(&LocobotArmsActionServer::handle_name_cancel, this, std::placeholders::_1),
+            std::bind(&LocobotArmsActionServer::handle_name_accepted, this, std::placeholders::_1));
 
-        joint_check_server_ = node_->create_service<raya_arms_msgs::srv::ArmJointPlannerCheck>("locobot_joint_check", std::bind(&LocobotArmsActionServer::joint_check, this, _1, _2));
-        pose_check_server_ = node_->create_service<raya_arms_msgs::srv::ArmPosePlannerCheck>("locobot_pose_check", std::bind(&LocobotArmsActionServer::pose_check, this, _1, _2));
+        joint_check_server_ = node_->create_service<raya_arms_msgs::srv::ArmJointPlannerCheck>("locobot_joint_check", std::bind(&LocobotArmsActionServer::joint_check, this, std::placeholders::_1, std::placeholders::_2));
+        pose_check_server_ = node_->create_service<raya_arms_msgs::srv::ArmPosePlannerCheck>("locobot_pose_check", std::bind(&LocobotArmsActionServer::pose_check, this, std::placeholders::_1, std::placeholders::_2));
+    }
+    void LocobotArmsActionServer::onSceneMonitorReceivedUpdate(
+        planning_scene_monitor::PlanningSceneMonitor::SceneUpdateType update_type)
+    {
+        planning_scene_monitor::LockedPlanningSceneRW(psm_)->getCurrentStateNonConst().update();
     }
 
     void LocobotArmsActionServer::init_moveit_groups()
@@ -46,6 +51,25 @@ namespace locobot_arms
         move_group_gripper = new moveit::planning_interface::MoveGroupInterface(node_, gripper_planning_group);
         arm_joint_model_group = move_group_arm->getCurrentState()->getJointModelGroup(arm_planning_group);
         gripper_joint_model_group = move_group_gripper->getCurrentState()->getJointModelGroup(gripper_planning_group);
+        psm_ = std::make_shared<planning_scene_monitor::PlanningSceneMonitor>(node_, ROBOT_DESCRIPTION);
+
+        psm_->startSceneMonitor("monitored_planning_scene");
+        if (psm_->getPlanningScene())
+        {
+            RCLCPP_INFO(node_->get_logger(), "Get Scene Succesfully");
+            psm_->addUpdateCallback(
+                std::bind(&LocobotArmsActionServer::onSceneMonitorReceivedUpdate, this, std::placeholders::_1));
+        }
+        auto bg_func = [=]()
+        {
+            while (rclcpp::ok())
+            {
+                if (!psm_->requestPlanningSceneState("get_planning_scene"))
+                    RCLCPP_INFO(node_->get_logger(), "Reques scene fails");
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            }
+        };
+        std::thread{bg_func}.detach();
 
         move_group_arm->setMaxVelocityScalingFactor(1);
         moveit_msgs::msg::CollisionObject collision_object;
@@ -113,9 +137,10 @@ namespace locobot_arms
 
     void LocobotArmsActionServer::handle_joint_accepted(const std::shared_ptr<GoalHandleArmJointPlanner> goal_handle)
     {
-        using namespace std::placeholders;
-        // this needs to return quickly RCLCPP_INFO(node_->get_logger(), "Executing finished...");to avoid blocking the executor, so spin up a new thread
-        std::thread{std::bind(&LocobotArmsActionServer::execute_joint, this, _1), goal_handle}.detach();
+        // using namespace std::placeholders;
+        //  this needs to return quickly RCLCPP_INFO(node_->get_logger(), "Executing finished...");to avoid blocking the executor, so spin up a new thread
+        std::thread{std::bind(&LocobotArmsActionServer::execute_joint, this, std::placeholders::_1), goal_handle}
+            .detach();
     }
 
     void LocobotArmsActionServer::execute_joint(const std::shared_ptr<GoalHandleArmJointPlanner> goal_handle)
@@ -191,9 +216,9 @@ namespace locobot_arms
 
     void LocobotArmsActionServer::handle_name_accepted(const std::shared_ptr<GoalHandleArmNamePosPlanner> goal_handle)
     {
-        using namespace std::placeholders;
-        // this needs to return quickly RCLCPP_INFO(node_->get_logger(), "Executing finished...");to avoid blocking the executor, so spin up a new thread
-        std::thread{std::bind(&LocobotArmsActionServer::execute_name, this, _1), goal_handle}.detach();
+        // using namespace std::placeholders;
+        //  this needs to return quickly RCLCPP_INFO(node_->get_logger(), "Executing finished...");to avoid blocking the executor, so spin up a new thread
+        std::thread{std::bind(&LocobotArmsActionServer::execute_name, this, std::placeholders::_1), goal_handle}.detach();
     }
 
     void LocobotArmsActionServer::execute_name(const std::shared_ptr<GoalHandleArmNamePosPlanner> goal_handle)
@@ -233,11 +258,11 @@ namespace locobot_arms
                         auto actual_joints = move_group->getCurrentJointValues();
                         feedback->arm = PLANNING_GROUP;
                         std::vector<double> joint_values;
-                        moveit::core::RobotStatePtr kinematic_state = move_group->getCurrentState(10);
+                        moveit::core::RobotStatePtr kinematic_state = move_group->getCurrentState();
                         auto kinematic_model = move_group->getJointValueTarget();
                         const auto joint_model_group = kinematic_model.getJointModelGroup(PLANNING_GROUP);
                         kinematic_state->copyJointGroupPositions(joint_model_group, joint_values);
-                        feedback->percentage_complete = get_progress(initial_joints,joint_values, actual_joints);
+                        feedback->percentage_complete = get_progress(initial_joints, joint_values, actual_joints);
                         goal_handle->publish_feedback(feedback);
                         std::this_thread::sleep_for(std::chrono::milliseconds(100));
                     }
@@ -275,9 +300,9 @@ namespace locobot_arms
 
     void LocobotArmsActionServer::handle_gripper_accepted(const std::shared_ptr<GoalHandleGripperPlanner> goal_handle)
     {
-        using namespace std::placeholders;
-        // this needs to return quickly RCLCPP_INFO(node_->get_logger(), "Executing finished...");to avoid blocking the executor, so spin up a new thread
-        std::thread{std::bind(&LocobotArmsActionServer::execute_gripper, this, _1), goal_handle}.detach();
+        // using namespace std::placeholders;
+        //  this needs to return quickly RCLCPP_INFO(node_->get_logger(), "Executing finished...");to avoid blocking the executor, so spin up a new thread
+        std::thread{std::bind(&LocobotArmsActionServer::execute_gripper, this, std::placeholders::_1), goal_handle}.detach();
     }
 
     void LocobotArmsActionServer::execute_gripper(const std::shared_ptr<GoalHandleGripperPlanner> goal_handle)
@@ -349,9 +374,9 @@ namespace locobot_arms
 
     void LocobotArmsActionServer::handle_pose_accepted(const std::shared_ptr<GoalHandleArmPosePlanner> goal_handle)
     {
-        using namespace std::placeholders;
-        // this needs to return quickly RCLCPP_INFO(node_->get_logger(), "Executing finished...");to avoid blocking the executor, so spin up a new thread
-        std::thread{std::bind(&LocobotArmsActionServer::execute_pose, this, _1), goal_handle}.detach();
+        // using namespace std::placeholders;
+        //  this needs to return quickly RCLCPP_INFO(node_->get_logger(), "Executing finished...");to avoid blocking the executor, so spin up a new thread
+        std::thread{std::bind(&LocobotArmsActionServer::execute_pose, this, std::placeholders::_1), goal_handle}.detach();
     }
 
     void LocobotArmsActionServer::execute_pose(const std::shared_ptr<GoalHandleArmPosePlanner> goal_handle)
@@ -539,7 +564,9 @@ namespace locobot_arms
         moveit::planning_interface::MoveGroupInterface *move_group;
         moveit::planning_interface::MoveItErrorCode success;
         bool correct_group = true;
-        bool correct_number_joints = false;
+        bool correct_number_joints = true;
+        bool valid_state = true;
+        planning_scene_monitor::LockedPlanningSceneRO planning_scene(psm_);
 
         if (request->arm.compare(arm_planning_group) == 0)
             move_group = move_group_arm;
@@ -552,15 +579,25 @@ namespace locobot_arms
         {
             if (move_group->setJointValueTarget(request->position))
             {
-                moveit::planning_interface::MoveGroupInterface::Plan my_plan;
-                correct_number_joints = true;
-                success = move_group->plan(my_plan);
+                static const bool verbose = false;
+                auto robot_state = move_group->getJointValueTarget();
+                robot_state.update();
+                valid_state = planning_scene->isStateValid(robot_state, "", verbose);
             }
+            else
+                correct_number_joints = false;
         }
         // Check if goal is done
         if (rclcpp::ok())
         {
-            convert_result(success, &response->error, correct_group, correct_number_joints);
+            if (valid_state && correct_group && correct_number_joints)
+                response->error = response->SUCCESS;
+            if (!correct_group)
+                response->error = response->INVALID_GROUP_NAME;
+            if (!valid_state)
+                response->error = response->NO_IK_SOLUTION;
+            if (!correct_number_joints)
+                response->error = response->INVALID_NUMBER_JOINTS;
             RCLCPP_INFO(node_->get_logger(), "Goal joint succeeded");
         }
     }
@@ -573,6 +610,9 @@ namespace locobot_arms
         moveit::planning_interface::MoveGroupInterface *move_group;
         moveit::planning_interface::MoveItErrorCode success;
         bool correct_group = true;
+        bool correct_number_joints = true;
+        bool valid_state = true;
+        planning_scene_monitor::LockedPlanningSceneRO planning_scene(psm_);
 
         if (request->arm.compare(arm_planning_group) == 0)
             move_group = move_group_arm;
@@ -583,15 +623,28 @@ namespace locobot_arms
 
         if (correct_group)
         {
-            moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+            auto goal_pose = request->goal_pose;
+            static const bool verbose = false;
 
-            move_group->setPoseTarget(request->goal_pose);
-            success = move_group->plan(my_plan);
+            auto robot_model_loader = psm_->getRobotModelLoader();
+            const auto kinematic_model = robot_model_loader->getModel();
+            moveit::core::RobotStatePtr kinematic_state(new moveit::core::RobotState(kinematic_model));
+            const auto joint_model_group = kinematic_model->getJointModelGroup(PLANNING_GROUP);
+            kinematic_state->setFromIK(joint_model_group, goal_pose);
+            kinematic_state->update();
+            valid_state = planning_scene->isStateValid(*kinematic_state, "", verbose);
         }
+        // Check if goal is done
         if (rclcpp::ok())
         {
-            convert_result(success, &response->error,
-                           correct_group);
+            if (valid_state && correct_group && correct_number_joints)
+                response->error = response->SUCCESS;
+            if (!correct_group)
+                response->error = response->INVALID_GROUP_NAME;
+            if (!valid_state)
+                response->error = response->NO_IK_SOLUTION;
+
+            RCLCPP_INFO(node_->get_logger(), "Goal joint succeeded");
         }
     }
 }

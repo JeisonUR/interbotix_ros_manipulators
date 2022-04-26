@@ -17,6 +17,8 @@
 
 #include "moveit/move_group_interface/move_group_interface.h"
 #include "moveit/planning_scene_interface/planning_scene_interface.h"
+#include "moveit/planning_scene_monitor/planning_scene_monitor.h"
+#include "moveit/robot_state/robot_state.h"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "tf2/LinearMath/Quaternion.h"
 
@@ -26,7 +28,7 @@ namespace locobot_arms
     constexpr auto GRIPPER_GROUP = "interbotix_gripper";
     constexpr float MIN_GRIPPER = 0.011;
     constexpr float MAX_GRIPPER = 0.038;
-
+    constexpr auto ROBOT_DESCRIPTION = "robot_description";
     class LocobotArmsActionServer
     {
     public:
@@ -232,6 +234,9 @@ namespace locobot_arms
         void pose_check(const std::shared_ptr<raya_arms_msgs::srv::ArmPosePlannerCheck::Request> request,
           std::shared_ptr<raya_arms_msgs::srv::ArmPosePlannerCheck::Response>      response);
 
+        void onSceneMonitorReceivedUpdate(
+            planning_scene_monitor::PlanningSceneMonitor::SceneUpdateType update_type);
+
         rclcpp_action::Server<ArmJointPlanner>::SharedPtr joint_server_;
         rclcpp_action::Server<ArmPosePlanner>::SharedPtr pose_server_;
         rclcpp_action::Server<GripperPlanner>::SharedPtr gripper_server_;
@@ -255,5 +260,6 @@ namespace locobot_arms
         
 
         moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
+        planning_scene_monitor::PlanningSceneMonitorPtr psm_;
     };
 }
