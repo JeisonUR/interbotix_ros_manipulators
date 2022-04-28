@@ -5,7 +5,8 @@ from rclpy.action import ActionClient
 import numpy as np
 from interbotix_xs_msgs.srv import MotorGains
 from geometry_msgs.msg import TransformStamped
-from raya_cv_msgs.srv import GetGripperPoses
+from raya_grasp_msgs.srv import GetGripperPoses
+from raya_grasp_msgs.srv import GetGripperPosesPlace
 from raya_cv_msgs.msg import DetectionsAT
 from raya_arms_msgs.action import ArmJointPlanner, ArmPosePlanner
 
@@ -54,8 +55,9 @@ PID_GAINS_ARMS={
 class GraspingClient(Node):
     def __init__(self):
         super().__init__("grasping_client")
-        self.cli = self.create_client(GetGripperPoses, "/raya/cv/get_gripper_poses")
+        self.cli = self.create_client(GetGripperPoses, "raya/grasp/get_gripper_poses")
         self.cli_pids = self.create_client(MotorGains, "set_motor_pid_gains")
+        self.cli_place = self.create_client(MotorGains, "raya/grasp/get_place_poses")
         self._pose_client = ActionClient(self, ArmPosePlanner, "locobot_pose_action")
         self._joint_client = ActionClient(self, ArmJointPlanner, "locobot_joint_action")
         self.tf_br = StaticTransformBroadcaster(self)
@@ -158,6 +160,19 @@ class GraspingClient(Node):
             self.future = self.cli.call(self.req)
         except:
             print("service fail")
+
+    def call_service_place(self, height):
+        while not self.cli_place.wait_for_service(timeout_sec=0.1):
+            self.get_logger().info("service not available, waiting again...")
+        self.req = GetGripperPosesPlace.Request()
+        self.req.family = "tag36h11"
+        self.req.id = 42
+        self.req.height=height
+        self.req.tries=50
+        try:
+            self.future = self.cli_place.call(self.req)
+        except:
+            print("service fail")
     
     def call_service_PIDs(self):
         while not self.cli_pids.wait_for_service(timeout_sec=0.1):
@@ -217,13 +232,13 @@ def main(args=None):
     thread = Thread(target=rclpy.spin, args=(node,))
     thread.start()
 
-    if nxt:
-        count=0
-        while count<2:
-            node.call_service_PIDs()
-            response = node.future_pid
-            count=count+1
-            time.sleep(0.1)
+    # if nxt:
+    #     count=0
+    #     while count<2:
+    #         node.call_service_PIDs()
+    #         response = node.future_pid
+    #         count=count+1
+    #         time.sleep(0.1)
 
     # if nxt:
     #     print("going tf position")
@@ -307,24 +322,89 @@ def main(args=None):
         else:
             print("fail close")
             nxt = False
-    # if nxt:
-    #     time.sleep(0.4)
-    #     post_grasp = node.move_arm(response.post_grasp_pose, False)
-    #     if post_grasp.result.error == 0:
-    #         nxt = True
-    #     else:
-    #         print("fail post grasp")
-    #         nxt = False
     if nxt:
         time.sleep(0.4)
-        print("going home position")
-        home = node.move_arm_joints(SLEEP_POSITION)
-        if home.result.error == 0:
+        post_grasp = node.move_arm(response.post_grasp_pose, False)
+        if post_grasp.result.error == 0:
             nxt = True
         else:
-            print("fail home position")
+            print("fail post grasp")
+            nxt = False
+    if nxt:
+        time.sleep(0.4)
+        print("going sleep position")
+        sleep = node.move_arm_joints(SLEEP_POSITION)
+        if sleep.result.error == 0:
+            nxt = True
+        else:
+            print("fail sleep position")
             nxt = False 
+    if nxt:
+        print("get position")
+        time.sleep(0.4)
+        node.call_service_place(response.height_object)
+        response = node.future
+        count=0
+        nxt=False
+        while count<5 and nxt ==False:
+            if (
+                response.pre_place_pose.position.x != 0
+                and response.pre_place_pose.position.y != 0
+                and response.pre_place_pose.position.z != 0
+            ):
+                nxt = True
+            else:
+                count =count+1
+                print("fail apriltag pose")
+                nxt = False
 
+    if nxt:
+        print("pre place position")
+        time.sleep(0.4)
+        pre_place = node.move_arm(response.pre_place_pose,False)
+        if pre_place.result.error == 0:
+            nxt = True
+        else:
+            print("fail pre place")
+            nxt = False
+    
+    if nxt:
+        print("place")
+        time.sleep(0.4)
+        place = node.move_arm(response.place_pose,True)
+        if place.result.error == 0:
+            nxt = True
+        else:
+            print("fail place")
+            nxt = False
+
+    if nxt:
+        print("open grip")
+        time.sleep(0.4)
+        open_grip = node.move_gripper(0.101)
+        if open_grip.result.error == 0:
+            nxt = True
+        else:
+            print("fail open")
+            nxt = False
+            
+    if nxt:
+        time.sleep(0.4)
+        post_place = node.move_arm(response.post_place_pose, False)
+        if post_place.result.error == 0:
+            nxt = True
+        else:
+            print("fail post place")
+            nxt = False
+    if nxt:
+        time.sleep(0.4)
+        print("going sleep position")
+        sleep = node.move_arm_joints(SLEEP_POSITION)
+        if sleep.result.error == 0:
+            nxt = True
+        else:
+            print("fail sleep position")
+            nxt = False 
     # if nxt:
     #     time.sleep(0.4)
     #     open_grip = node.move_gripper(0.101)

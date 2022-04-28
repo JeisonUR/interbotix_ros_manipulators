@@ -1,4 +1,9 @@
 #include "locobot_arms/locobot_arms_action_server.hpp"
+#include <chrono>
+#include <cstdlib>
+#include <memory>
+
+using namespace std::chrono_literals;
 
 namespace locobot_arms
 {
@@ -47,12 +52,36 @@ namespace locobot_arms
 
     void LocobotArmsActionServer::init_moveit_groups()
     {
-        move_group_arm = new moveit::planning_interface::MoveGroupInterface(node_, arm_planning_group);
+              move_group_arm = new moveit::planning_interface::MoveGroupInterface(node_, arm_planning_group);
         move_group_gripper = new moveit::planning_interface::MoveGroupInterface(node_, gripper_planning_group);
         arm_joint_model_group = move_group_arm->getCurrentState()->getJointModelGroup(arm_planning_group);
         gripper_joint_model_group = move_group_gripper->getCurrentState()->getJointModelGroup(gripper_planning_group);
         psm_ = std::make_shared<planning_scene_monitor::PlanningSceneMonitor>(node_, ROBOT_DESCRIPTION);
+        /*configuring move_group*/
+        move_group_arm->setMaxVelocityScalingFactor(1);
+        move_group_arm->setNumPlanningAttempts(30);
+        move_group_arm->setPlanningTime(5);
 
+        /*setting PID*/
+        rclcpp::Client<interbotix_xs_msgs::srv::MotorGains>::SharedPtr client =
+            node_->create_client<interbotix_xs_msgs::srv::MotorGains>("set_motor_pid_gains");
+        auto req = std::make_shared<interbotix_xs_msgs::srv::MotorGains::Request>();
+        req->cmd_type = std::string("group");
+        req->name = std::string("arm");
+        req->kp_pos = 900;
+        req->ki_pos = 50;
+        req->kd_pos = 5;
+        req->k1 = 0;
+        req->k2 = 0;
+        req->kp_vel = 100;
+        req->ki_vel = 1920;
+        while (!client->wait_for_service(1s))
+        {
+            RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "service not available, waiting again...");
+        }
+        auto result = client->async_send_request(req);
+
+        /*Start scenes monitor*/
         psm_->startSceneMonitor("monitored_planning_scene");
         if (psm_->getPlanningScene())
         {
@@ -71,9 +100,9 @@ namespace locobot_arms
         };
         std::thread{bg_func}.detach();
 
-        move_group_arm->setMaxVelocityScalingFactor(1);
+        /*Add collisions*/
         moveit_msgs::msg::CollisionObject collision_object;
-        collision_object.header.frame_id = move_group_arm->getPlanningFrame();
+        collision_object.header.frame_id = "wx250s/base_arm_link";
 
         // The id of the object is used to identify it.
         collision_object.id = "table_camera";
@@ -112,8 +141,33 @@ namespace locobot_arms
         collision_object.primitives.push_back(primitive1);
         collision_object.primitive_poses.push_back(box_pose1);
 
+        moveit_msgs::msg::CollisionObject collision_object1;
+        collision_object1.header.frame_id = "wx250s/base_arm_link";
+
+        // The id of the object is used to identify it.
+        collision_object1.id = "obstacle";
+
+        shape_msgs::msg::SolidPrimitive primitive2;
+        primitive2.type = primitive.BOX;
+        primitive2.dimensions.resize(3);
+        primitive2.dimensions[primitive.BOX_X] = 0.04;
+        primitive2.dimensions[primitive.BOX_Y] = 0.10;
+        primitive2.dimensions[primitive.BOX_Z] = 0.20;
+
+        // Define a pose for the box (specified relative to frame_id).
+        geometry_msgs::msg::Pose box_pose2;
+        box_pose2.orientation.w = 1.0;
+        box_pose2.position.x = 0.25;
+        box_pose2.position.y = 0;
+        box_pose2.position.z = 0;
+
+        collision_object1.primitives.push_back(primitive2);
+        collision_object1.primitive_poses.push_back(box_pose2);
+        collision_object1.operation = collision_object.ADD;
+
         std::vector<moveit_msgs::msg::CollisionObject> collision_objects;
         collision_objects.push_back(collision_object);
+        // collision_objects.push_back(collision_object1);
 
         planning_scene_interface.addCollisionObjects(collision_objects);
     }

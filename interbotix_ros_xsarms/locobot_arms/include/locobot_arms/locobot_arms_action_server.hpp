@@ -11,6 +11,7 @@
 #include "raya_arms_msgs/action/arm_name_pos_planner.hpp"
 #include "raya_arms_msgs/srv/arm_joint_planner_check.hpp"
 #include "raya_arms_msgs/srv/arm_pose_planner_check.hpp"
+#include "interbotix_xs_msgs/srv/motor_gains.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "rclcpp_components/register_node_macro.hpp"

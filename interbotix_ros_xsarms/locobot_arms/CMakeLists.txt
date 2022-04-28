@@ -14,8 +14,10 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
-find_package(moveit_core REQUIRED
-find_package(moveit_ros_planning REQUIRED))
+find_package(moveit_core REQUIRED)
+find_package(moveit_ros_planning REQUIRED)
+find_package(interbotix_xs_msgs REQUIRED)
+
 
 add_executable(locobot_arms_action_server src/locobot_arms_action_server.cpp)
 target_include_directories(locobot_arms_action_server PUBLIC
@@ -31,6 +33,7 @@ ament_target_dependencies(
   "moveit_ros_planning_interface"
   "moveit_ros_planning"
   "moveit_core"
+  "interbotix_xs_msgs"
 )
 
 install(TARGETS locobot_arms_action_server
