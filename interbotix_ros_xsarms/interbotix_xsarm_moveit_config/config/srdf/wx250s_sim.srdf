@@ -12,6 +12,7 @@
 
     <group name="interbotix_arm">
         <link  name="base_link"/>
+        <joint name="base_link_joint" />
         <joint name="waist" />
         <joint name="shoulder" />
         <joint name="elbow" />

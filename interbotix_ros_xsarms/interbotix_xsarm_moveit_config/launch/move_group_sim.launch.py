@@ -4,16 +4,12 @@ from ament_index_python.packages import get_package_share_directory as pkgpath
 
 from launch import LaunchDescription, launch_description_sources
 from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import Command,FindExecutable,LaunchConfiguration,PathJoinSubstitution
 from launch.conditions import IfCondition, UnlessCondition
-from launch.actions import IncludeLaunchDescription,OpaqueFunction
+from launch.actions import IncludeLaunchDescription,OpaqueFunction,OpaqueFunction,ExecuteProcess
 from launch_ros.actions import Node
-from launch.actions import ExecuteProcess
 from ament_index_python.packages import get_package_share_directory
-from launch.substitutions import (
-    Command,FindExecutable,LaunchConfiguration,PathJoinSubstitution,
-)
-import xacro
+
 
 
 def load_file(package_name, file_path):
@@ -36,6 +32,7 @@ def load_yaml(package_name, file_path):
             return yaml.safe_load(file)
     except EnvironmentError:  # parent of IOError, OSError *and* WindowsError where available
         return None
+
 
 def launch_setup(context, *args, **kwargs):
     dof = LaunchConfiguration("dof")
@@ -83,66 +80,111 @@ def launch_setup(context, *args, **kwargs):
             "external_urdf_loc:=",
             external_urdf_loc,
             " ",
-            "load_gazebo_configs:=",
-            load_gazebo_configs,
-            " ",
-            "use_actual:=",
+            "use_sim:=",
             "true",
             " "
         ]
     )
 
     robot_description = {"robot_description": model}
+    print(model.perform(context))
 
-    ros2_controllers_path = os.path.join(
-        get_package_share_directory("interbotix_xsarm_ros_control"),
-        "config",
-        dof.perform(context)+"dof_controllers.yaml",
+    robot_description_semantic_config = load_file(
+        "interbotix_xsarm_moveit_config", f"config/srdf/{robot_model.perform(context)}_sim.srdf"
     )
 
- 
-    ros2_control_node = Node(
-        package="controller_manager",
-        executable="ros2_control_node",
-        #namespace=robot_model.perform(context),
-        parameters=[robot_description, ros2_controllers_path],
-        output={
-            "stdout": "screen",
-            "stderr": "screen",
-        },
+    robot_description_semantic = {
+        "robot_description_semantic": robot_description_semantic_config
+    }
+
+    kinematics_yaml = load_yaml(
+        "interbotix_xsarm_moveit_config", "config/kinematics.yaml"
     )
 
-    # Load controllers
-    load_controllers = []
-    for controller in [ 
-        "arm_controller",
-        "gripper_controller",
-    ]:
-        load_controllers += [
-            ExecuteProcess(
-                cmd=["ros2 run controller_manager spawner {} --ros-args -r __ns:=/{}".format(controller,robot_model.perform(context))],
-                shell=True,
-                output="screen",
-            )
+    # Planning Functionality
+    ompl_planning_pipeline_config = {
+        "move_group": {
+            "planning_plugin": "ompl_interface/OMPLPlanner",
+            "request_adapters": """default_planner_request_adapters/AddTimeOptimalParameterization default_planner_request_adapters/FixWorkspaceBounds default_planner_request_adapters/FixStartStateBounds default_planner_request_adapters/FixStartStateCollision default_planner_request_adapters/FixStartStatePathConstraints""",
+            "start_state_max_bounds_error": 0.1,
+        }
+    }
+    ompl_planning_yaml = load_yaml(
+        "interbotix_xsarm_moveit_config", "config/ompl_planning.yaml"
+    )
+    ompl_planning_pipeline_config["move_group"].update(ompl_planning_yaml)
+
+    # Trajectory Execution Functionality
+    moveit_simple_controllers_yaml = load_yaml(
+        "interbotix_xsarm_moveit_config", f"config/controllers/{dof.perform(context)}dof_controllers.yaml"
+    )
+    moveit_controllers = {
+        "moveit_simple_controller_manager": moveit_simple_controllers_yaml,
+        "moveit_controller_manager": "moveit_simple_controller_manager/MoveItSimpleControllerManager",
+    }
+
+    trajectory_execution = {
+        "moveit_manage_controllers": True,
+        "trajectory_execution.allowed_execution_duration_scaling": 1.2,
+        "trajectory_execution.allowed_goal_duration_margin": 0.5,
+        "trajectory_execution.allowed_start_tolerance": 0.01,
+    }
+
+    planning_scene_monitor_parameters = {
+        "publish_planning_scene": True,
+        "publish_geometry_updates": True,
+        "publish_state_updates": True,
+        "publish_transforms_updates": True,
+    }
+
+
+    run_move_group_node = Node(
+        package="moveit_ros_move_group",
+        executable="move_group",
+        output="screen",
+        parameters=[
+            robot_description,
+            robot_description_semantic,
+            kinematics_yaml,
+            ompl_planning_pipeline_config,
+            trajectory_execution,
+            moveit_controllers,
+            planning_scene_monitor_parameters,
         ]
+    )
 
-    control_launch=IncludeLaunchDescription(
-            launch_description_sources.PythonLaunchDescriptionSource(
-                pkgpath("interbotix_xsarm_control") + "/launch/xsarm_control.launch.py"
-            ),
-            launch_arguments={
-                "robot_model"       : robot_model                   ,
-                "robot_name"        : robot_name                    ,
-                "base_link_frame"   : base_link_frame               ,
-                "show_ar_tag"       : show_ar_tag                   ,
-                "use_world_frame"   : use_world_frame               ,
-                "external_urdf_loc" : external_urdf_loc             ,
-                "use_rviz"          : LaunchConfiguration("use_rviz"),
-                "mode_configs"      : LaunchConfiguration("mode_configs")                  
-            }.items(),
-        )
+    # RViz
+    rviz_config_file = (
+        get_package_share_directory("interbotix_xsarm_moveit_config") + "/config/moveit.rviz"
+    )
 
-    return [control_launch,ros2_control_node]+load_controllers
+    rviz_node = Node(
+        package="rviz2",
+        executable="rviz2",
+        name="rviz2",
+        output="log",
+        arguments=["-d", rviz_config_file],
+        parameters=[
+            robot_description,
+            robot_description_semantic,
+            ompl_planning_pipeline_config,
+            kinematics_yaml,
+        ],
+        condition=IfCondition(LaunchConfiguration("use_moveit_rviz")),
+    )
+
+    # Static TF
+    static_tf = Node(
+        package="tf2_ros",
+        executable="static_transform_publisher",
+        name="static_transform_publisher",
+        output="log",
+        arguments=["0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "world", "base_link"],
+    )
+
+
+    return [static_tf,run_move_group_node,rviz_node] #[static_tf,run_move_group_node,rviz_node,static_tf_camera, static_apriltag]
+
 
 def generate_launch_description():
     robot_model_arg = DeclareLaunchArgument(
@@ -158,19 +200,15 @@ def generate_launch_description():
         "show_ar_tag", default_value="False", description="show_ar_tag"
     )
     use_world_frame_arg = DeclareLaunchArgument(
-        "use_world_frame", default_value="False", description="use_world_frame"
+        "use_world_frame", default_value="True", description="use_world_frame"
     ) 
     external_urdf_loc_arg = DeclareLaunchArgument(
         "external_urdf_loc", default_value="", description="external_urdf_loc"
     )
 
     use_rviz_arg = DeclareLaunchArgument(
-        "use_rviz", default_value="False", description="use_rviz"
+        "use_moveit_rviz", default_value="False", description="use_moveit_rviz"
     )
-    mode_configs_arg = DeclareLaunchArgument(
-        "mode_configs", default_value=load_yaml("interbotix_xsarm_moveit_config", "config/modes.yaml"), description="mode_configs"
-    )
-
     dof_arg = DeclareLaunchArgument(
         "dof", default_value="6", description="dof"
     )
@@ -204,10 +242,9 @@ def generate_launch_description():
             use_world_frame_arg,
             external_urdf_loc_arg,
             use_rviz_arg,
-            mode_configs_arg,
             dof_arg,
             OpaqueFunction(function=launch_setup),
         ]
         
     )
-
+    

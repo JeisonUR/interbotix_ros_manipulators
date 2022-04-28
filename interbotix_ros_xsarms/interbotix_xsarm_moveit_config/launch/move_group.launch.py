@@ -82,6 +82,9 @@ def launch_setup(context, *args, **kwargs):
             " ",
             "load_gazebo_configs:=",
             load_gazebo_configs,
+            " ",
+            "use_actual:=",
+            "true",
         ]
     )
 
@@ -195,7 +198,7 @@ def launch_setup(context, *args, **kwargs):
         arguments=["-0.01025", "0.0", "-0.011", "0.0", "0.0", "0.0", robot_name.perform(context) +"/ee_arm_link", "april_tag"],
     )
 
-    return [static_tf,run_move_group_node,rviz_node,static_tf_camera, static_apriltag]
+    return [run_move_group_node,rviz_node,static_tf_camera, static_apriltag] #[static_tf,run_move_group_node,rviz_node,static_tf_camera, static_apriltag]
 
 
 def generate_launch_description():

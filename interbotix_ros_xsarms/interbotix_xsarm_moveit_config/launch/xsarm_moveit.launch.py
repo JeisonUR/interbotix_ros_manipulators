@@ -118,20 +118,40 @@ def generate_launch_description():
 
     fake_launch=IncludeLaunchDescription(
             launch_description_sources.PythonLaunchDescriptionSource(
-                pkgpath("interbotix_xsarm_descriptions") + "/launch/xsarm_description.launch.py"
+                pkgpath("interbotix_xsarm_ros_control") + "/launch/xsarm_ros_control_sim.launch.py"
             ),
             launch_arguments={
-                "robot_model"                       :LaunchConfiguration("robot_model"),
-                "robot_name"                        :LaunchConfiguration("robot_name"),
-                "base_link_frame"                   :LaunchConfiguration("base_link_frame"),
-                "show_ar_tag"                       :LaunchConfiguration("show_ar_tag"),
-                "use_world_frame"                   :LaunchConfiguration("use_world_frame"),
-                "external_urdf_loc"                 :LaunchConfiguration("external_urdf_loc"),
-                "use_rviz"                          :"false",
+               "robot_model"                       : LaunchConfiguration("robot_model"),
+               "robot_name"                        : LaunchConfiguration("robot_name"),
+               "base_link_frame"                   : LaunchConfiguration("base_link_frame"),
+               "show_ar_tag"                       : LaunchConfiguration("show_ar_tag"),
+               "use_world_frame"                   : LaunchConfiguration("use_world_frame"),
+               "external_urdf_loc"                 : LaunchConfiguration("external_urdf_loc"),
+               "use_rviz"                          :"false",
+               "mode_configs"                      : mode_configs,
+               "dof"                               : LaunchConfiguration("dof"),
+               "use_sim"                           : "true",
             }.items(),
             condition=IfCondition(LaunchConfiguration("use_fake")),
         )
 
+    move_launch_sim=IncludeLaunchDescription(
+            launch_description_sources.PythonLaunchDescriptionSource(
+                pkgpath("interbotix_xsarm_moveit_config") + "/launch/move_group_sim.launch.py"
+            ),
+            launch_arguments={
+               "robot_model"                       : LaunchConfiguration("robot_model"),
+               "robot_name"                        : LaunchConfiguration("robot_name"),
+               "base_link_frame"                   : LaunchConfiguration("base_link_frame"),
+               "show_ar_tag"                       : LaunchConfiguration("show_ar_tag"),
+               "use_world_frame"                   : LaunchConfiguration("use_world_frame"),
+               "external_urdf_loc"                 : LaunchConfiguration("external_urdf_loc"),
+               "use_moveit_rviz"                   : LaunchConfiguration("use_moveit_rviz"),
+               "dof"                               : LaunchConfiguration("dof"),
+            }.items(),
+            condition=IfCondition(LaunchConfiguration("use_fake")),
+        )
+    
     move_launch=IncludeLaunchDescription(
             launch_description_sources.PythonLaunchDescriptionSource(
                 pkgpath("interbotix_xsarm_moveit_config") + "/launch/move_group.launch.py"
@@ -146,6 +166,7 @@ def generate_launch_description():
                "use_moveit_rviz"                   : LaunchConfiguration("use_moveit_rviz"),
                "dof"                               : LaunchConfiguration("dof"),
             }.items(),
+            condition=IfCondition(LaunchConfiguration("use_actual")),
         )
 
     return LaunchDescription(
@@ -167,7 +188,8 @@ def generate_launch_description():
             #gazebo_launch,
             actual_launch,
             fake_launch,
-            move_launch
+            move_launch,
+            move_launch_sim
         ]
     )
 

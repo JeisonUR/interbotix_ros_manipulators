@@ -83,21 +83,18 @@ def launch_setup(context, *args, **kwargs):
             "external_urdf_loc:=",
             external_urdf_loc,
             " ",
-            "load_gazebo_configs:=",
-            load_gazebo_configs,
-            " ",
-            "use_actual:=",
+            "use_sim:=",
             "true",
             " "
         ]
     )
-
+   
     robot_description = {"robot_description": model}
-
+    
     ros2_controllers_path = os.path.join(
         get_package_share_directory("interbotix_xsarm_ros_control"),
         "config",
-        dof.perform(context)+"dof_controllers.yaml",
+        dof.perform(context)+"dof_controllers_sim.yaml",
     )
 
  
@@ -117,32 +114,19 @@ def launch_setup(context, *args, **kwargs):
     for controller in [ 
         "arm_controller",
         "gripper_controller",
+        "joint_state_broadcaster",
     ]:
         load_controllers += [
             ExecuteProcess(
-                cmd=["ros2 run controller_manager spawner {} --ros-args -r __ns:=/{}".format(controller,robot_model.perform(context))],
+                cmd=["ros2 run controller_manager spawner {}".format(controller)],
                 shell=True,
                 output="screen",
             )
         ]
 
-    control_launch=IncludeLaunchDescription(
-            launch_description_sources.PythonLaunchDescriptionSource(
-                pkgpath("interbotix_xsarm_control") + "/launch/xsarm_control.launch.py"
-            ),
-            launch_arguments={
-                "robot_model"       : robot_model                   ,
-                "robot_name"        : robot_name                    ,
-                "base_link_frame"   : base_link_frame               ,
-                "show_ar_tag"       : show_ar_tag                   ,
-                "use_world_frame"   : use_world_frame               ,
-                "external_urdf_loc" : external_urdf_loc             ,
-                "use_rviz"          : LaunchConfiguration("use_rviz"),
-                "mode_configs"      : LaunchConfiguration("mode_configs")                  
-            }.items(),
-        )
+    
 
-    return [control_launch,ros2_control_node]+load_controllers
+    return [ros2_control_node]+load_controllers
 
 def generate_launch_description():
     robot_model_arg = DeclareLaunchArgument(
