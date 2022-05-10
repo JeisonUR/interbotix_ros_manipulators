@@ -1,7 +1,0 @@
-string topic_pcl_sub
-string topic_pcl_pub
-string topic_det_sub 
----
-string  pointcloud_info
-uint8   error
-string  error_msg

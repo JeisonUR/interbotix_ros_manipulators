@@ -54,6 +54,16 @@
         <joint name="wrist_angle" value="0.35" />
         <joint name="wrist_rotate" value="0" />
     </group_state>
+
+    <group_state name="Sleep1" group="interbotix_arm">
+        <joint name="elbow" value="1.570796" />
+        <joint name="forearm_roll" value="0" />
+        <joint name="shoulder" value="-1.8675" />
+        <joint name="waist" value="0" />
+        <joint name="wrist_angle" value="-1.2217" />
+        <joint name="wrist_rotate" value="0" />
+    </group_state>
+
     <group_state name="Closed" group="interbotix_gripper">
         <joint name="left_finger" value="0.011" />
         <joint name="right_finger" value="-0.011" />

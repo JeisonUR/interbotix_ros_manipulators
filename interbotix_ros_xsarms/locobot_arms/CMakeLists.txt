@@ -7,7 +7,7 @@ endif()
 
 # find dependencies
 
-find_package(moveit_common REQUIRED)
+
 find_package(ament_cmake REQUIRED)
 find_package(raya_arms_msgs REQUIRED)
 find_package(rclcpp REQUIRED)

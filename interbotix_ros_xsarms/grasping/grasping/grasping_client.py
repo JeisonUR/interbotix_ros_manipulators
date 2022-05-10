@@ -8,7 +8,7 @@ from geometry_msgs.msg import TransformStamped
 from raya_grasp_msgs.srv import GetGripperPoses
 from raya_grasp_msgs.srv import GetGripperPosesPlace
 from raya_cv_msgs.msg import DetectionsAT
-from raya_arms_msgs.action import ArmJointPlanner, ArmPosePlanner
+from raya_arms_msgs.action import ArmJointPlanner, ArmPosePlanner, ArmNamePosPlanner
 
 
 import time
@@ -57,8 +57,9 @@ class GraspingClient(Node):
         super().__init__("grasping_client")
         self.cli = self.create_client(GetGripperPoses, "raya/grasp/get_gripper_poses")
         self.cli_pids = self.create_client(MotorGains, "set_motor_pid_gains")
-        self.cli_place = self.create_client(MotorGains, "raya/grasp/get_place_poses")
+        self.cli_place = self.create_client(GetGripperPosesPlace, "raya/grasp/get_gripper_poses_place")
         self._pose_client = ActionClient(self, ArmPosePlanner, "locobot_pose_action")
+        self._name_client = ActionClient(self, ArmNamePosPlanner, "/locobot_name_pos_action")
         self._joint_client = ActionClient(self, ArmJointPlanner, "locobot_joint_action")
         self.tf_br = StaticTransformBroadcaster(self)
         self.tf_buffer = Buffer()
@@ -210,6 +211,15 @@ class GraspingClient(Node):
         self._joint_client.wait_for_server()
 
         return self._joint_client.send_goal(goal_msg)
+    
+    def move_arm_name(self, name):
+        goal_msg = ArmNamePosPlanner.Goal()
+        goal_msg.name = name
+        goal_msg.arm = "interbotix_arm"
+
+        self._name_client.wait_for_server()
+
+        return self._name_client.send_goal(goal_msg)
 
     def move_gripper(self, width_object):
         goal_msg = ArmJointPlanner.Goal()
@@ -258,7 +268,7 @@ def main(args=None):
     # if nxt:
     #     time.sleep(1)
     #     print("going home position")
-    #     home = node.move_arm_joints(SLEEP_POSITION)
+    #     home = node.move_arm_name("Sleep")
     #     if home.result.error == 0:
     #         nxt = True
     #     else:
@@ -324,16 +334,16 @@ def main(args=None):
             nxt = False
     if nxt:
         time.sleep(0.4)
-        post_grasp = node.move_arm(response.post_grasp_pose, False)
+        post_grasp = node.move_arm(response.post_grasp_pose)
         if post_grasp.result.error == 0:
             nxt = True
         else:
             print("fail post grasp")
             nxt = False
     if nxt:
-        time.sleep(0.4)
+        time.sleep(2)
         print("going sleep position")
-        sleep = node.move_arm_joints(SLEEP_POSITION)
+        sleep = node.move_arm_name("Sleep")
         if sleep.result.error == 0:
             nxt = True
         else:
@@ -341,7 +351,7 @@ def main(args=None):
             nxt = False 
     if nxt:
         print("get position")
-        time.sleep(0.4)
+        time.sleep(1)
         node.call_service_place(response.height_object)
         response = node.future
         count=0
@@ -360,8 +370,8 @@ def main(args=None):
 
     if nxt:
         print("pre place position")
-        time.sleep(0.4)
-        pre_place = node.move_arm(response.pre_place_pose,False)
+        time.sleep(1)
+        pre_place = node.move_arm(response.pre_place_pose, False)
         if pre_place.result.error == 0:
             nxt = True
         else:
@@ -370,7 +380,7 @@ def main(args=None):
     
     if nxt:
         print("place")
-        time.sleep(0.4)
+        time.sleep(2)
         place = node.move_arm(response.place_pose,True)
         if place.result.error == 0:
             nxt = True
@@ -380,7 +390,7 @@ def main(args=None):
 
     if nxt:
         print("open grip")
-        time.sleep(0.4)
+        time.sleep(1)
         open_grip = node.move_gripper(0.101)
         if open_grip.result.error == 0:
             nxt = True
@@ -390,16 +400,16 @@ def main(args=None):
             
     if nxt:
         time.sleep(0.4)
-        post_place = node.move_arm(response.post_place_pose, False)
+        post_place = node.move_arm(response.post_place_pose)
         if post_place.result.error == 0:
             nxt = True
         else:
             print("fail post place")
             nxt = False
     if nxt:
-        time.sleep(0.4)
+        time.sleep(2)
         print("going sleep position")
-        sleep = node.move_arm_joints(SLEEP_POSITION)
+        sleep = node.move_arm_name("Sleep1")
         if sleep.result.error == 0:
             nxt = True
         else:

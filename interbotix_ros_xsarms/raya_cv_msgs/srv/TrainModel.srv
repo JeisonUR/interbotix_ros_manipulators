@@ -1,9 +1,0 @@
-string  model           # detector, classificator, segmentator, special
-string  type            # object, face, etc... 
-string  name
-string  data
-string  params
----
-string  train_info
-uint8   error
-string  error_msg

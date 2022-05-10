@@ -69,8 +69,8 @@ namespace locobot_arms
         req->cmd_type = std::string("group");
         req->name = std::string("arm");
         req->kp_pos = 900;
-        req->ki_pos = 50;
-        req->kd_pos = 5;
+        req->ki_pos = 100;
+        req->kd_pos = 10;
         req->k1 = 0;
         req->k2 = 0;
         req->kp_vel = 100;
@@ -110,15 +110,15 @@ namespace locobot_arms
         shape_msgs::msg::SolidPrimitive primitive;
         primitive.type = primitive.CYLINDER;
         primitive.dimensions.resize(3);
-        primitive.dimensions[primitive.CYLINDER_HEIGHT] = 0.005;
-        primitive.dimensions[primitive.CYLINDER_RADIUS] = 0.16;
+        primitive.dimensions[primitive.CYLINDER_HEIGHT] = 0.68;
+        primitive.dimensions[primitive.CYLINDER_RADIUS] = 0.175;
 
         // Define a pose for the box (specified relative to frame_id).
         geometry_msgs::msg::Pose box_pose;
         box_pose.orientation.w = 1.0;
         box_pose.position.x = 0.0;
         box_pose.position.y = 0.0;
-        box_pose.position.z = -0.0025;
+        box_pose.position.z = -0.345;
 
         shape_msgs::msg::SolidPrimitive primitive1;
         primitive1.type = primitive.BOX;
@@ -246,6 +246,8 @@ namespace locobot_arms
         if (rclcpp::ok())
         {
             convert_result(success, &result->error, correct_group, correct_number_joints);
+            if(result->error)
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
             goal_handle->succeed(result);
             RCLCPP_INFO(node_->get_logger(), "Goal joint succeeded");
         }
@@ -329,6 +331,8 @@ namespace locobot_arms
         if (rclcpp::ok())
         {
             convert_result(success, &result->error, correct_group, correct_number_joints);
+            if(result->error)
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
             goal_handle->succeed(result);
             RCLCPP_INFO(node_->get_logger(), "Goal joint succeeded");
         }
@@ -404,6 +408,8 @@ namespace locobot_arms
         if (rclcpp::ok())
         {
             convert_result(success, &result->error, correct_group, correct_number_joints);
+            if(result->error)
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
             goal_handle->succeed(result);
             RCLCPP_INFO(node_->get_logger(), "Goal joint succeeded");
         }
@@ -511,6 +517,8 @@ namespace locobot_arms
         {
             convert_result(success, &result->error,
                            correct_group);
+            if(result->error)
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
             goal_handle->succeed(result);
             RCLCPP_INFO(node_->get_logger(), "Goal pose succeeded");
         }
@@ -667,7 +675,7 @@ namespace locobot_arms
         bool correct_number_joints = true;
         bool valid_state = true;
         planning_scene_monitor::LockedPlanningSceneRO planning_scene(psm_);
-
+        bool ik_solution = false;
         if (request->arm.compare(arm_planning_group) == 0)
             move_group = move_group_arm;
         else if (request->arm.compare(gripper_planning_group) == 0)
@@ -684,7 +692,12 @@ namespace locobot_arms
             const auto kinematic_model = robot_model_loader->getModel();
             moveit::core::RobotStatePtr kinematic_state(new moveit::core::RobotState(kinematic_model));
             const auto joint_model_group = kinematic_model->getJointModelGroup(PLANNING_GROUP);
-            kinematic_state->setFromIK(joint_model_group, goal_pose);
+            for (int i = 0; i < 9; i++)
+            {
+                ik_solution = kinematic_state->setFromIK(joint_model_group, goal_pose);
+                if (ik_solution)
+                    break;
+            }
             kinematic_state->update();
             valid_state = planning_scene->isStateValid(*kinematic_state, "", verbose);
         }
@@ -695,7 +708,7 @@ namespace locobot_arms
                 response->error = response->SUCCESS;
             if (!correct_group)
                 response->error = response->INVALID_GROUP_NAME;
-            if (!valid_state)
+            if (!valid_state || !ik_solution)
                 response->error = response->NO_IK_SOLUTION;
 
             RCLCPP_INFO(node_->get_logger(), "Goal joint succeeded");

@@ -187,9 +187,10 @@ def launch_setup(context, *args, **kwargs):
         executable="static_transform_publisher",
         name="static_transform_publisher",
         output="log",
-        arguments=["0.01", "-0.095", "0.115", "0", "0", "0","1", robot_name.perform(context) +"/"+base_link_frame.perform(context), "rs_d435_link"],
+        arguments=["0.01", "-0.095", "0.115", "0", "0", "0","1", robot_name.perform(context) +"/"+base_link_frame.perform(context), "gary_camera_arm_link"],
     )
 
+    
     static_apriltag = Node(
         package="tf2_ros",
         executable="static_transform_publisher",
